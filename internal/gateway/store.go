@@ -27,6 +27,7 @@ type store struct {
 	capacity int
 	order    *list.List // Front is the most recently used entry.
 	entries  map[storeKey]*list.Element
+	latest   map[string]chain.Round // Highest verified round for each beacon ID, written by followers.
 }
 
 func newStore(capacity int) *store {
@@ -34,6 +35,7 @@ func newStore(capacity int) *store {
 		capacity: capacity,
 		order:    list.New(),
 		entries:  make(map[storeKey]*list.Element),
+		latest:   make(map[string]chain.Round),
 	}
 }
 
@@ -53,6 +55,25 @@ func (s *store) put(beaconID string, r chain.Round) {
 		s.order.Remove(oldest)
 		delete(s.entries, oldest.Value.(*storeEntry).key)
 	}
+}
+
+// advanceLatest records r as the latest round of the chain with beaconID when r is higher than the recorded one.
+// The latest round is separate from the LRU list, so an eviction cannot remove it (FR-upstream-21).
+func (s *store) advanceLatest(beaconID string, r chain.Round) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cur, ok := s.latest[beaconID]; ok && cur.Number >= r.Number {
+		return
+	}
+	s.latest[beaconID] = r
+}
+
+// latestRound returns the latest round of the chain with beaconID, and false when none is recorded.
+func (s *store) latestRound(beaconID string) (chain.Round, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.latest[beaconID]
+	return r, ok
 }
 
 // get returns round number of the chain with beaconID and marks it as recently used.
