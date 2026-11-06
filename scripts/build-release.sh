@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the release binaries and a SHA-256 checksum file.
 # Usage: scripts/build-release.sh <tag> <output-dir>
-# The script builds both commands for four targets. If one build fails, the
+# The script builds the two binaries for four targets. If one build fails, the
 # script exits non-zero and writes no checksum file, so no release can follow.
 set -euo pipefail
 
@@ -10,7 +10,11 @@ if [ "$#" -ne 2 ]; then
   exit 2
 fi
 tag="$1"
-out="$2"
+# Resolve the output directory before the cd, so that a relative path keeps the caller's meaning.
+mkdir -p "$2"
+out="$(cd "$2" && pwd)"
+# The build paths are relative to the module root, so the script must run from there.
+cd "$(dirname "$0")/.."
 
 # GO is overridable so that the test can force a build failure.
 go_cmd="${GO:-go}"
