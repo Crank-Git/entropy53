@@ -186,7 +186,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-record-7 — <code>Chain.RoundAt(t)</code> returns an error for a time before genesis.
 </li>
-<li>FR-record-8 — A valid round number is an integer from 1 to 2^53, inclusive.
+<li>FR-record-8 — A valid round number is an integer from 1 to 2^53, inclusive, except round 1 of <code>default</code>, which the record body cannot hold.
 </li>
 <li>FR-record-23 — <code>Chain.RoundAfter(t)</code> returns the lowest round number with a round time at or after <code>t</code>.
 </li>

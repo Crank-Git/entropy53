@@ -73,6 +73,16 @@ Observed on live endpoints.
 
 The live `public/latest` round and the formula agree. Round 33725163 was the latest at one moment, and the formula gave 33725178 for a time about 45 seconds later.
 
+## Round 1 of default
+
+Read by hand on 2026-11-06 from `https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/public/1`. No test does this.
+
+- The `signature` field has 96 bytes.
+- The `previous_signature` field has 32 bytes. Its value equals the group hash of `default`.
+- `Chain.Verify` with the registry public key returns no error for this round.
+
+The record body for `default` holds a previous signature of 96 bytes, so it cannot hold this round. The maintainer ruled on #46 that the gateway does not serve round 1 of `default`.
+
 ## Size arithmetic
 
 Each body has a 1-byte version and an 8-byte round number.
