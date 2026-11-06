@@ -89,9 +89,15 @@ func (h *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 // answer sets the RCODE, the AA bit and the answer records of m for the query r.
-// The gate runs in a fixed order: question count, opcode, class, zone transfer, then names.
+// The gate runs in a fixed order: EDNS version, question count, opcode, class, zone transfer, then names.
 // The question keeps its original letter case in the answer, because SetReply copies it unchanged.
 func (h *handler) answer(r, m *dns.Msg) {
+	// RFC 6891 section 6.1.3 requires BADVERS for an EDNS version that the gateway does not implement.
+	// The check comes first, so that no other rule answers a query that the gateway cannot interpret.
+	if opt := r.IsEdns0(); opt != nil && opt.Version() > 0 {
+		m.Rcode = dns.RcodeBadVers
+		return
+	}
 	if len(r.Question) != 1 {
 		m.Rcode = dns.RcodeFormatError
 		return
@@ -258,7 +264,7 @@ func effectiveType(kind nameKind, qtype uint16) uint16 {
 	return qtype
 }
 
-// finish adds the OPT record when the query r has one, and truncates a UDP answer to the size that the client permits.
+// finish adds the OPT record when the query r has one, always with EDNS version 0, and truncates a UDP answer to the size that the client permits.
 // The DO bit stays clear, because the zone has no DNSSEC.
 func (h *handler) finish(w dns.ResponseWriter, r, m *dns.Msg) {
 	size := dns.MinMsgSize

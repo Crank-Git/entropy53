@@ -22,7 +22,7 @@ var (
 	spaceRE = regexp.MustCompile(`\s+`)
 )
 
-// readDraft returns the draft source with every run of white space reduced to one space.
+// readDraft returns the draft source unchanged. A test that matches a phrase calls flatten, through requireText.
 func readDraft(t *testing.T) string {
 	t.Helper()
 	raw, err := os.ReadFile(draftFile)
@@ -188,21 +188,48 @@ func TestDraftChainParametersEqualRegistry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		sub := subsection(t, body, id)
-		for _, want := range []string{
-			"Chain hash: " + c.ChainHash,
-			"Scheme: " + c.SchemeID,
-			"Public key: " + hex.EncodeToString(c.PublicKey),
-			"Genesis: " + strconv.FormatInt(c.Genesis, 10),
-			"Period: " + strconv.FormatInt(c.Period, 10) + " seconds",
-			"Signature length: " + strconv.Itoa(c.SigLen) + " bytes",
-			"Previous signature length: " + strconv.Itoa(c.PrevSigLen) + " bytes",
-		} {
-			if !strings.Contains(sub, want) {
-				t.Errorf("chain %s: the draft does not state %q", id, want)
+		got := parseFields(subsection(t, body, id))
+		want := map[string]string{
+			"Chain hash":                c.ChainHash,
+			"Scheme":                    c.SchemeID,
+			"Public key":                hex.EncodeToString(c.PublicKey),
+			"Genesis":                   strconv.FormatInt(c.Genesis, 10),
+			"Period":                    strconv.FormatInt(c.Period, 10) + " seconds",
+			"Signature length":          strconv.Itoa(c.SigLen) + " bytes",
+			"Previous signature length": strconv.Itoa(c.PrevSigLen) + " bytes",
+		}
+		for name, w := range want {
+			if g, ok := got[name]; !ok {
+				t.Errorf("chain %s: the draft does not state %q", id, name)
+			} else if g != w {
+				t.Errorf("chain %s: %s = %q, want %q", id, name, g, w)
+			}
+		}
+		for name := range got {
+			if _, ok := want[name]; !ok {
+				t.Errorf("chain %s: the draft states the unknown field %q", id, name)
 			}
 		}
 	}
+}
+
+// parseFields returns the "* Name: value" items of a subsection, keyed by name.
+// A line that starts with white space continues the value above it, with no separator.
+func parseFields(sub string) map[string]string {
+	out := map[string]string{}
+	var last string
+	for _, line := range strings.Split(sub, "\n") {
+		switch {
+		case strings.HasPrefix(line, "* "):
+			name, value, _ := strings.Cut(strings.TrimPrefix(line, "* "), ": ")
+			out[name], last = value, name
+		case last != "" && (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")):
+			out[last] += strings.TrimSpace(line)
+		default:
+			last = ""
+		}
+	}
+	return out
 }
 
 // subsection returns the lines under the "## `id`" heading of body, up to the next "## " heading.
