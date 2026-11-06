@@ -174,7 +174,7 @@ func TestDraftStatesBase64RejectionCases(t *testing.T) {
 
 func TestDraftStatesRecordBodyCheckOrder(t *testing.T) {
 	requireText(t, section(t, "Record Body"),
-		"checks the length first, then the version, then the round number")
+		"The version check and the round number check come after the length check")
 }
 
 func TestDraftStatesNoIANAAction(t *testing.T) {

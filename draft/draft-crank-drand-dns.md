@@ -196,9 +196,8 @@ A decoder MUST reject a body whose length differs from the exact length for the 
 A decoder MUST check the length before it reads any field.
 A decoder MUST reject a version other than 0x01.
 A decoder MUST reject a round number below 1 or above 2^53.
-A decoder checks the length first, then the version, then the round number.
-Only the length check has a required place.
-The order of the version check and the round number check changes only which failure a decoder reports.
+The version check and the round number check come after the length check, in either order.
+The order of those two checks changes only which failure a decoder reports.
 
 ## Base64 Text
 
@@ -654,15 +653,15 @@ The keys come in this order:
 | `randomness` | The SHA-256 hash of the signature, in hexadecimal. |
 
 A line that starts with white space continues the value of the line above it.
+A continuation line is indented by two more spaces than a key line.
 A line break and the white space that starts a continuation line are not part of a value.
 To read a value, join the first line and every continuation line, with no separator.
-A key with nothing after the colon has an empty value.
+A key with nothing after the colon has an empty value, except `txt`, whose value is never empty.
 
 The key `txt` occurs once for each character-string, in the order of the record.
 A decoder concatenates the values of all `txt` keys of one vector, as {{record-body}} specifies.
 The vector of `default` has two character-strings, of 255 and 13 characters, so it has two `txt` lines.
 
-A `txt` value is never empty.
 A test suite MAY hold the same fields in another container, for example a JSON object with the `txt` values as an array of strings.
 The values in the container equal the values in this appendix.
 
