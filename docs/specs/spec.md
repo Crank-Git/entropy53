@@ -509,3 +509,4 @@ No item blocks approval.
 - 2026-11-06: The interop workflow runs on pull requests into `dev` and `main`, so that a promotion also runs the suite before a release tag.
 - 2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a `default` answer is smaller than the 512-byte floor of `Msg.Truncate`.
 - 2026-11-06: The maintainer ruled on #46. The record layout stays, and round 1 of `default` is not served, because its previous signature has 32 bytes. Goal 1, FR-record-8 and the Internet-Draft state the exception. The maintainer also supplied the Internet-Draft author block.
+- 2026-11-06: The gateway answers an EDNS version above 0 with BADVERS, as RFC 6891 requires.

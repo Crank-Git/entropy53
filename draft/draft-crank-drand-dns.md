@@ -25,15 +25,21 @@ normative:
   RFC8020:
   RFC8482:
   RFC9380:
-informative:
-  RFC9156:
-  I-D.irtf-cfrg-bls-signature:
+  I-D.irtf-cfrg-bls-signature-05:
   DRAND-CRYPTO:
     title: "drand v2.1.8, package crypto, file schemes.go"
     target: https://github.com/drand/drand/blob/v2.1.8/crypto/schemes.go
     date: false
     author:
       - org: drand
+  DRAND-KYBER:
+    title: "drand/kyber v1.3.3, package pairing/bn254, file point.go"
+    target: https://github.com/drand/kyber/blob/v1.3.3/pairing/bn254/point.go
+    date: false
+    author:
+      - org: drand
+informative:
+  RFC9156:
   DRAND-HTTP:
     title: "drand HTTP API"
     target: https://docs.drand.love/developer/http-api
@@ -45,7 +51,8 @@ informative:
 This document specifies how a gateway serves rounds of a drand randomness beacon in DNS TXT records, and how a client reads and verifies them.
 A client checks the BLS signature of each round against a public key that the client already holds.
 The gateway, the resolver and the network are therefore not trusted for integrity.
-This document specifies the name shapes, the record body, the base64 text, the answer rules, the TTL rules and the client procedure for the chains `quicknet`, `default` and `evmnet`.
+This document specifies the name shapes, the record body and the base64 text.
+It also specifies the answer rules, the TTL rules and the client procedure, for the chains `quicknet`, `default` and `evmnet`.
 
 --- middle
 
@@ -224,9 +231,11 @@ Example.
 The round record for round 1000 of `quicknet` is this single character-string:
 
 ~~~
-AQAAAAAAAAPotEZ5uaWa8uyHaxprGtUuqbFhX8OYKxlXY1D5NEfLESXjQrc6jdK6y+R+S2tj7V45
+AQAAAAAAAAPotEZ5uaWa8uyHaxprGtUuqbFhX8OYKxlXY1D5
+  NEfLESXjQrc6jdK6y+R+S2tj7V45
 ~~~
 
+The second line of the example continues the first line, and the line break is not part of the string.
 The first byte is 0x01.
 The next eight bytes are 0x00000000000003E8, which is 1000.
 The last 48 bytes are the signature.
@@ -236,10 +245,12 @@ The last 48 bytes are the signature.
 Round 1 of `default` has a previous signature of 32 bytes, and not 96 bytes.
 That round verifies in drand, but the layout above cannot hold it.
 The layout stays as it is, and this version does not serve that round.
-For the round name of round 1 of `default`, a gateway MUST return SERVFAIL.
+For a TXT query or an ANY query at the round name of round 1 of `default`, a gateway MUST return SERVFAIL.
+For a query of another type at that name, a gateway MUST return NODATA with a negative TTL of 60.
 The label `1` stays valid, so a gateway MUST NOT return NXDOMAIN.
 A record body of 137 bytes for round 1 fails the length check of {{record-body}}.
-A record body of 201 bytes that claims round 1 passes the length check, but it cannot verify, because the previous signature of that round has 32 bytes.
+A record body of 201 bytes can claim round 1.
+It passes the length check, but it cannot verify, because the previous signature of that round has 32 bytes.
 The signature check of {{check-record}} rejects such a body.
 
 ## Version
@@ -279,6 +290,9 @@ For a TXT query at the round name of a future round, which is a round number abo
   The limit of 300 seconds bounds the cost of a clock error.
 * A gateway SHOULD send no request to any upstream for a future round.
   A query for a future round then costs arithmetic only.
+
+If the clock of the gateway is before the genesis time of the chain, the gateway has no current round.
+A gateway MUST then return SERVFAIL for a TXT query or an ANY query at every round name of that chain.
 
 For a TXT query at the round name of a round that is due but that the gateway cannot yet obtain:
 
@@ -333,8 +347,14 @@ The NS host names SHOULD be outside the zone, so that the zone needs no address 
 ## Protocol
 
 A gateway MUST answer queries over UDP and over TCP ({{RFC7766}}).
-A gateway MUST set the AA bit on every response inside the zone and MUST clear the RA bit.
+A gateway MUST set the AA bit on every response to a question about a name inside the zone.
+A gateway MUST clear the AA bit on every other response.
+These are the REFUSED responses, the FORMERR and NOTIMP responses, the BADVERS response, and the TC response of {{response-rate}}.
+A gateway MUST clear the RA bit.
 A gateway MUST return the OPT record when the query has one ({{RFC6891}}).
+The only exception is the TC response of {{response-rate}}, which holds no OPT record.
+If the OPT record of a query has an EDNS version above 0, the gateway MUST return the extended RCODE BADVERS ({{Section 6.1.3 of RFC6891}}).
+That response holds an OPT record of version 0 and no answer record, and the gateway MUST NOT obtain a round for it.
 The gateway SHOULD announce a UDP payload size of 1232 octets, so that a UDP response does not fragment on a common path.
 A gateway MUST ignore the DO bit, because the zone has no DNSSEC.
 
@@ -348,12 +368,13 @@ A gateway MUST return NOTIMP for an opcode other than QUERY.
 A gateway MUST return REFUSED for a class other than IN.
 A gateway MUST return REFUSED for a query of type AXFR or IXFR, and MUST NOT disclose zone content.
 
-## Response Rate
+## Response Rate {#response-rate}
 
 A reflection attacker can send queries with a spoofed source address.
 A UDP response is several times larger than the query, so a gateway SHOULD limit its UDP responses for each source prefix.
 A prefix SHOULD be an IPv4 /24 or an IPv6 /56.
 Over the limit, a gateway SHOULD send every second response with only the header, the question and the TC bit, and SHOULD drop the others.
+That response has no OPT record and a clear AA bit.
 The TC bit makes a real client retry over TCP.
 A gateway SHOULD apply no such limit to TCP, because a TCP source address is not spoofable.
 
@@ -363,7 +384,7 @@ A client reads a round from one resolver.
 A client MUST hold the chain parameters of {{chain-parameters}}, and in particular the public key, before it starts.
 A client MUST NOT obtain the public key from a gateway or from any DNS answer.
 
-## Reading a Pinned Round
+## Read a Pinned Round
 
 To read round `n` of a chain, for example round 1000 of `quicknet`, a client does these steps in order:
 
@@ -374,20 +395,22 @@ To read round `n` of a chain, for example round 1000 of `quicknet`, a client doe
 3. If the response has the TC bit, the client MUST repeat the query over TCP.
 4. If the RCODE is neither NOERROR nor NXDOMAIN, the client MUST report a transport failure.
    A timeout and a network failure are also transport failures.
-5. If the answer section holds no TXT record, the response is negative.
+5. If the answer section is empty, the response is negative.
    The client then follows {{negative-response}}.
 6. Otherwise the client tests each TXT record in the answer section with the steps of {{check-record}}.
+   The client MUST ignore a record of another type.
    The client MUST return the first record that passes, and MUST ignore a record that fails.
 7. If no record passes, the client MUST report that no record verifies.
+   This includes an answer section with no TXT record.
    A gateway cannot cause a wrong value this way, but it can cause this error.
 
-## Checking One Record {#check-record}
+## Check One Record {#check-record}
 
 For each TXT record, a client does these steps:
 
 1. Concatenate all character-strings of the record, and decode the base64 text ({{record-body}}).
    If the decoding fails, the record fails.
-2. Check the length and the version of the record body ({{record-body}}).
+2. Check the length and the version of the record body, and check that the round number is from 1 to 2^53 ({{record-body}}).
    If a check fails, the record fails.
 3. When the client asked for a round number, compare the round number in the body with the requested number.
    If they differ, the record fails.
@@ -404,7 +427,8 @@ A client MUST NOT return a round that failed verification.
 ## Verification {#verification}
 
 A client verifies a signature with the scheme of the chain and the public key from the registry of {{chain-parameters}}.
-The scheme is a BLS signature scheme ({{I-D.irtf-cfrg-bls-signature}}) with a hash to the signature group ({{RFC9380}}).
+The scheme is a BLS signature scheme ({{I-D.irtf-cfrg-bls-signature-05}}) with a hash to the signature group ({{RFC9380}}).
+The drand code cites version 05 of that document for the form of the DST {{DRAND-CRYPTO}}.
 Each chain defines the groups, the domain separation tag (DST) and the message below.
 The message is a function of the round number and, for a chained scheme, of the previous signature.
 "Round" in a message means the round number as an unsigned 64-bit big-endian integer.
@@ -425,14 +449,20 @@ For `default`, the scheme is `pedersen-bls-chained`:
 
 For `evmnet`, the scheme is `bls-bn254-unchained-on-g1`:
 
-* The signature is a point of G1 on the curve BN254 in uncompressed form, 64 bytes: the x coordinate, then the y coordinate, each 32 bytes big-endian.
+* The signature is a point of G1 on the curve BN254, in uncompressed form.
+  It has 64 bytes: the x coordinate and then the y coordinate, each 32 bytes big-endian.
 * The public key is a point of G2 on BN254 in uncompressed form, 128 bytes: four coordinates of 32 bytes each, big-endian.
   The order is x imaginary part, x real part, y imaginary part, y real part, which is the order of the EVM precompiles.
 * The message is Keccak-256(round), with the original Keccak padding and not the padding of SHA3-256.
 * The DST is `BLS_SIG_BN254G1_XMD:KECCAK-256_SVDW_RO_NUL_`.
   No IETF document defines this hash-to-curve suite, so an implementer needs the drand implementation as a reference.
+* The hash H derives two field elements with expand_message_xmd ({{Section 5.3.1 of RFC9380}}), with Keccak-256 as the hash function.
+  It maps each element to a point with the Shallue-van de Woestijne method ({{Section 6.6.1 of RFC9380}}) and adds the two points.
+  The reference code is in {{DRAND-KYBER}}.
 
-The signature is valid when the pairing check of the BLS scheme holds: e(signature, generator of the key group) equals e(H(message), public key), with H the hash to the signature group under the DST.
+The signature is valid when the pairing check of the BLS scheme holds.
+The check is e(signature, generator of the key group) = e(H(message), public key).
+H is the hash to the signature group under the DST.
 These values come from the drand implementation {{DRAND-CRYPTO}}.
 A client MUST NOT write its own pairing code when a reviewed library for the scheme exists.
 
@@ -451,7 +481,7 @@ A caller of a pinned round can wait and ask again after "not published".
 A caller sees "withheld" as a loss of availability.
 Another gateway or another resolver can answer.
 
-## Reading the Latest Round
+## Read the Latest Round
 
 A client MAY query the latest name.
 It does steps 2 to 4 of the pinned procedure for `latest.<chain>.<zone>`.
@@ -467,13 +497,21 @@ A draw MUST NOT use the latest name.
 
 A client holds these values.
 They come from the drand `/info` endpoint of each chain.
-A gateway and a client MUST use the public key below and MUST NOT take a key from any other source.
+A client MUST verify a round with the public key of the chain that it selected.
+The client MUST obtain that key from a source that it trusts, and MUST NOT obtain it from a gateway or from any DNS answer.
+A gateway MUST verify with the public key below.
+
+A hexadecimal value can span several lines.
+White space inside a value is not part of the value.
 
 ## `quicknet`
 
 * Chain hash: 52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971
 * Scheme: bls-unchained-g1-rfc9380
-* Public key: 83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a
+* Public key: 83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911f
+  b90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d106451
+  0d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809
+  bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a
 * Genesis: 1692803367
 * Period: 3 seconds
 * Signature length: 48 bytes
@@ -483,7 +521,8 @@ A gateway and a client MUST use the public key below and MUST NOT take a key fro
 
 * Chain hash: 8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce
 * Scheme: pedersen-bls-chained
-* Public key: 868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31
+* Public key: 868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5c
+  ce96366b5d7a569937c529eeda66c7293784a9402801af31
 * Genesis: 1595431050
 * Period: 30 seconds
 * Signature length: 96 bytes
@@ -493,7 +532,12 @@ A gateway and a client MUST use the public key below and MUST NOT take a key fro
 
 * Chain hash: 04f1e9062b8a81f848fded9c12306733282b2727ecced50032187751166ec8c3
 * Scheme: bls-bn254-unchained-on-g1
-* Public key: 07e1d1d335df83fa98462005690372c643340060d205306a9aa8106b6bd0b3820557ec32c2ad488e4d4f6008f89a346f18492092ccc0d594610de2732c8b808f0095685ae3a85ba243747b1b2f426049010f6b73a0cf1d389351d5aaaa1047f6297d3a4f9749b33eb2d904c9d9ebf17224150ddd7abd7567a9bec6c74480ee0b
+* Public key: 07e1d1d335df83fa98462005690372c643340060d205306a
+  9aa8106b6bd0b3820557ec32c2ad488e4d4f6008f89a346f
+  18492092ccc0d594610de2732c8b808f0095685ae3a85ba2
+  43747b1b2f426049010f6b73a0cf1d389351d5aaaa1047f6
+  297d3a4f9749b33eb2d904c9d9ebf17224150ddd7abd7567
+  a9bec6c74480ee0b
 * Genesis: 1727521075
 * Period: 3 seconds
 * Signature length: 64 bytes
@@ -538,8 +582,8 @@ This document gives no way to force an answer.
 
 A gateway can select among recent rounds at a latest name.
 Every round that the gateway returns is a real round with a valid signature.
-A client accepts the round unless it is stale ({{client-procedure}}).
-A gateway can therefore choose the value that a client sees, within the last 3 rounds.
+A client returns the round, and it also reports a stale result when the round is stale ({{client-procedure}}).
+A gateway can therefore choose the value that a client sees without a stale result, within the last 3 rounds.
 A pinned round has exactly one valid value, so a gateway has no such choice.
 A draw MUST use a pinned round and MUST NOT use a latest name.
 The latest name has no cryptographic property that a round name lacks.
@@ -559,7 +603,8 @@ To pin a round for a draw, an organizer does these steps in order:
 
 An off-path attacker can try to place a false record in the cache of a resolver.
 A false record fails verification, so the client rejects it and reports that no record verifies.
-The false record can stay in the cache until its TTL ends, and the client cannot obtain the true round from that resolver in that time.
+The false record can stay in the cache until its TTL ends.
+In that time the client cannot obtain the true round from that resolver.
 The same applies to a false negative answer: the client reports a negative outcome until its TTL ends.
 The caller can select another resolver.
 This document does not require DNSSEC, because the signature of the round already gives integrity.
@@ -570,7 +615,7 @@ A gateway verifies a round before it keeps or serves the round, so junk never re
 
 ## Client Clock
 
-A client reads a clock for one purpose.
+A client reads a clock for two purposes.
 The clock selects between "not published" and "withheld" in a negative response, and it decides when a latest round is stale.
 The clock has no effect on whether a signature verifies.
 An attacker that moves the clock of a client can therefore turn "withheld" into "not published", or hide a stale latest round.
@@ -589,7 +634,9 @@ A gateway cannot read a round before its round time.
 A reflection attacker can send queries to a gateway with a spoofed source address.
 A UDP answer is larger than the query, so the gateway amplifies the traffic to the victim.
 The answer for `latest.default.b.example` with a query of 42 bytes and no OPT record is 324 bytes, a gain of about 7.7.
-Other names give a gain of 4 to 8 times.
+The query for `latest.quicknet.b.example` has 43 bytes and the answer has 132 bytes, a gain of about 3.07.
+The query for `latest.evmnet.b.example` has 41 bytes and the answer has 154 bytes, a gain of about 3.76.
+The measured gain is therefore from 3.07 to 7.7 for these three names.
 A gateway SHOULD limit its UDP responses for each source prefix, as {{answer-rules}} specifies.
 The TC bit makes a real client retry over TCP, where no spoofing is possible.
 

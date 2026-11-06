@@ -193,7 +193,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h4 id="gateway-answers-round-records">Round records</h4>
 <ul>
-<li>FR-answers-10 — The gateway returns exactly one TXT record for a round name of a round that it holds or can fetch.
+<li>FR-answers-10 — The gateway returns exactly one TXT record for a round name of a round that it holds or can fetch, except round 1 of <code>default</code>, which the record body cannot hold (FR-record-8).
 </li>
 <li>FR-answers-11 — The TTL of that record is 86400 seconds.
 </li>
@@ -264,6 +264,8 @@ body.rv-open .layout { padding-right:21rem; }
 <li>FR-answers-38 — The gateway returns REFUSED for a class other than IN.
 </li>
 <li>FR-answers-46 — The gateway returns REFUSED for a QTYPE of AXFR or IXFR.
+</li>
+<li>FR-answers-47 — The gateway returns BADVERS for a query with an OPT record of an EDNS version above 0, with an OPT record of version 0 and no answer record (RFC 6891 section 6.1.3).
 </li>
 </ul>
 <h4 id="gateway-answers-rate-limit">Rate limit</h4>
