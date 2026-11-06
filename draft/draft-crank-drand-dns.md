@@ -197,7 +197,8 @@ A decoder MUST check the length before it reads any field.
 A decoder MUST reject a version other than 0x01.
 A decoder MUST reject a round number below 1 or above 2^53.
 A decoder checks the length first, then the version, then the round number.
-Every order rejects the same bodies, so the order changes only which failure a decoder reports.
+Only the length check has a required place.
+The order of the version check and the round number check changes only which failure a decoder reports.
 
 ## Base64 Text
 
@@ -637,6 +638,9 @@ A vector lets an implementer test a decoder and a gateway.
 ## Format of a Vector {#vector-format}
 
 A vector is a fenced block with the info string `vector`.
+A rendered text shows no fence.
+In a rendered text, a vector starts at its `beacon_id` line and ends with the last continuation line of its `randomness` value.
+A page header, a page footer or a blank line inside a vector is not part of the vector.
 A block holds lines in the form `key: value`.
 The keys come in this order:
 
