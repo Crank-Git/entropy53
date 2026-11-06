@@ -505,3 +505,5 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 - 2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
 - 2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
 - 2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
+- 2026-11-06: The interop workflow runs on pull requests into `dev` and `main`, so that a promotion also runs the suite before a release tag.
+- 2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a `default` answer is smaller than the 512-byte floor of `Msg.Truncate`.

@@ -2,7 +2,7 @@
 
 entropy53 serves drand rounds over DNS.
 A gateway answers TXT queries on a delegated zone.
-A client verifies each round with a BLS signature against a public key in the registry, so the gateway is not trusted.
+A client verifies each round with a BLS signature against a public key in the registry, so the client does not trust the gateway.
 
 ## Pin a round
 

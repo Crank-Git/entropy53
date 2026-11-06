@@ -672,6 +672,10 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li>2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
 </li>
+<li>2026-11-06: The interop workflow runs on pull requests into <code>dev</code> and <code>main</code>, so that a promotion also runs the suite before a release tag.
+</li>
+<li>2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a <code>default</code> answer is smaller than the 512-byte floor of <code>Msg.Truncate</code>.
+</li>
 </ul><nav class="pager">
 <span></span>
 <a href="html/page-threat-model.html">Threat model &rarr;</a>
