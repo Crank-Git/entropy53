@@ -7,6 +7,7 @@ allowed-tools: Bash, Read
 # Refresh the vectors
 
 A round is immutable, so the same round number always gives the same result. A refresh is needed only for a new chain, a new vector or a new format version.
+A new vector or a new chain needs a code edit in `scripts/refreshvectors/main.go` first. A refresh rewrites the whole file.
 
 1. Run the refresh. This step contacts a real upstream.
 
@@ -28,7 +29,7 @@ A round is immutable, so the same round number always gives the same result. A r
    go test ./record/...
    ```
 
-5. Update the test vector appendix in `draft/draft-crank-drand-dns.md`, then run the comparison.
+5. After issue #37 lands, update the test vector appendix in `draft/draft-crank-drand-dns.md`, then run the comparison.
 
    ```
    go test ./draft/...

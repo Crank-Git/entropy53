@@ -33,7 +33,7 @@ This feature set gives every later epic a repository that builds, tests, lints a
 - FR-foundation-12 — `entropy53 --version` prints the build version.
 - FR-foundation-13 — A workflow builds Linux and macOS binaries for amd64 and arm64 when a `v*` tag reaches `main`.
 - FR-foundation-14 — The release workflow attaches the binaries and a SHA-256 checksum file to a GitHub Release.
-- FR-foundation-15 — `testdata/vectors.json` exists with an empty `vectors` array and a documented schema.
+- FR-foundation-15 — `testdata/vectors.json` exists with an empty `vectors` array until Epic 1 fills it, and a documented schema.
 - FR-foundation-16 — `make refresh-vectors` is a documented target that fails with a clear message until Epic 1 fills it.
 
 ## User flows
