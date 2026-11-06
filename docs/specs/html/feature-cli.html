@@ -246,6 +246,7 @@ error: no record verifies. The gateway or the resolver returned a bad record.</c
 <div class="table-wrap"><table>
 <tr><th>Code</th><th>Meaning</th></tr>
 <tr><td>0</td><td>Verified result.</td></tr>
+<tr><td>1</td><td>A write to standard output failed.</td></tr>
 <tr><td>2</td><td>Usage error.</td></tr>
 <tr><td>3</td><td><code>ErrNotPublished</code>.</td></tr>
 <tr><td>4</td><td><code>ErrWithheld</code>.</td></tr>
@@ -280,7 +281,7 @@ error: no record verifies. The gateway or the resolver returned a bad record.</c
 </li>
 <li>A time exactly on a round time: <code>round-at</code> returns that round.
 </li>
-<li>A <code>round-at</code> time in the past: the CLI prints the number and writes a warning to standard error that the round already exists. A draw must not use it.
+<li>A <code>round-at</code> time in the past: the CLI prints the number and writes a warning to standard error that the time is in the past. A draw must pin a round with a future time.
 </li>
 </ul>
 <h3 id="cli-acceptance-criteria">Acceptance criteria</h3>

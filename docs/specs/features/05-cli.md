@@ -109,6 +109,7 @@ The round numbers, times and values above are real results from the `quicknet` p
 | Code | Meaning |
 |---|---|
 | 0 | Verified result. |
+| 1 | A write to standard output failed. |
 | 2 | Usage error. |
 | 3 | `ErrNotPublished`. |
 | 4 | `ErrWithheld`. |
@@ -138,7 +139,7 @@ The CLI uses the public packages `chain` and `client`, and `internal/version`. I
 - The `--json` flag with an error: the CLI writes a JSON object with an `error` field to standard output, and uses the same exit code.
 - An unknown chain: exit code 2, with a list of known chains.
 - A time exactly on a round time: `round-at` returns that round.
-- A `round-at` time in the past: the CLI prints the number and writes a warning to standard error that the round already exists. A draw must not use it.
+- A `round-at` time in the past: the CLI prints the number and writes a warning to standard error that the time is in the past. A draw must pin a round with a future time.
 
 ## Acceptance criteria
 

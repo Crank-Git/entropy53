@@ -670,6 +670,8 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li>2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
 </li>
+<li>2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
+</li>
 </ul><nav class="pager">
 <span></span>
 <a href="html/page-threat-model.html">Threat model &rarr;</a>
