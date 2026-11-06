@@ -90,7 +90,7 @@ func (h *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // answer sets the RCODE, the AA bit and the answer records of m for the query r.
 // The gate runs in a fixed order: question count, opcode, class, zone transfer, then names.
-// The question keeps its original letter case in the reply, because SetReply copies it unchanged.
+// The question keeps its original letter case in the answer, because SetReply copies it unchanged.
 func (h *handler) answer(r, m *dns.Msg) {
 	if len(r.Question) != 1 {
 		m.Rcode = dns.RcodeFormatError
