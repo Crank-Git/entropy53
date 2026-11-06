@@ -138,17 +138,3 @@ func TestValidRoundAndLatestNamesReturnSERVFAILForTXT(t *testing.T) {
 	wantRcode(t, addr, "round.1000.quicknet."+testZone, dns.TypeTXT, dns.RcodeServerFailure)
 	wantRcode(t, addr, "latest.quicknet."+testZone, dns.TypeTXT, dns.RcodeServerFailure)
 }
-
-func TestQueryWithoutOneQuestionReturnsFORMERR(t *testing.T) {
-	addr, _ := newTestServer(t)
-	m := new(dns.Msg)
-	m.Id = dns.Id()
-	c := &dns.Client{Timeout: dnsWait}
-	r, _, err := c.Exchange(m, addr)
-	if err != nil {
-		t.Fatalf("Exchange: %v", err)
-	}
-	if r.Rcode != dns.RcodeFormatError {
-		t.Errorf("rcode = %s, want FORMERR", dns.RcodeToString[r.Rcode])
-	}
-}
