@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  enable:
+    - gocyclo
+    - nestif
+    - unused
+    - errcheck
+  settings:
+    gocyclo:
+      # A function above this complexity fails the lint run.
+      min-complexity: 15
