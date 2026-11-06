@@ -14,12 +14,12 @@ The project has none. The gateway uses command-line flags. See `docs/specs/spec.
 
 ## GitHub
 
-- Repository: `Crank-Git/entropy53`, public. TODO(Epic 0): Create the repository.
+- Repository: `Crank-Git/entropy53`, public.
 - CI and releases: GitHub Actions. The workflows use the automatic `GITHUB_TOKEN`.
 
 ## Zone delegation
 
-An operator needs a zone with NS records at the parent. The project has no test zone. See `docs/operator-guide.md`. TODO(Epic 5): Write the guide.
+An operator needs a zone with NS records at the parent. The project has no test zone. See `docs/operator-guide.md`.
 
 ## Internet-Draft
 

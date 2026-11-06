@@ -2,7 +2,7 @@
 id: cli
 feature: CLI
 epic: "Epic 4: Client and CLI"
-status: issued
+status: built
 issues: [30, 31]
 mockups: []
 ---
@@ -109,6 +109,7 @@ The round numbers, times and values above are real results from the `quicknet` p
 | Code | Meaning |
 |---|---|
 | 0 | Verified result. |
+| 1 | A write to standard output failed. |
 | 2 | Usage error. |
 | 3 | `ErrNotPublished`. |
 | 4 | `ErrWithheld`. |
@@ -131,14 +132,14 @@ The CLI reads the registry. The CLI writes no file.
 
 ## Interfaces
 
-The CLI uses only the public packages `chain` and `client`. It has no external interface of its own.
+The CLI uses the public packages `chain` and `client`, and `internal/version`. It has no external interface of its own.
 
 ## Edge cases & failures
 
 - The `--json` flag with an error: the CLI writes a JSON object with an `error` field to standard output, and uses the same exit code.
 - An unknown chain: exit code 2, with a list of known chains.
 - A time exactly on a round time: `round-at` returns that round.
-- A `round-at` time in the past: the CLI prints the number and writes a warning to standard error that the round already exists. A draw must not use it.
+- A `round-at` time in the past: the CLI prints the number and writes a warning to standard error that the time is in the past. A draw must pin a round with a future time.
 
 ## Acceptance criteria
 

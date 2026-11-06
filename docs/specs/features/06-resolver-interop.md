@@ -25,7 +25,7 @@ This feature set proves the design on real resolver software. The main claims in
 - FR-interop-3 — The interop tests run against BIND in its default configuration, plus the static-stub zone setting.
 - FR-interop-4 — The gateway under test takes a clock with a fixed offset, so that a vector round can be in the future.
 - FR-interop-5 — The tests run resolvers in containers, so that CI and a developer machine use the same versions.
-- FR-interop-6 — A CI workflow runs the interop tests on pull requests into `dev`.
+- FR-interop-6 — A CI workflow runs the interop tests on pull requests into `dev` and `main`.
 
 ### Operator guide
 
@@ -135,7 +135,7 @@ The tests read `testdata/vectors.json`. The feature adds a query counter in the 
 - A client sends one query per second from 5 seconds before a round time. With default Unbound and default BIND, the client receives the round within 5 seconds after the round time.
 - A reader who follows `docs/operator-guide.md` reaches a first verified read on a test zone.
 - The first section of the README shows a `round-at` and a `get` command.
-- A `v0.1.0` tag on `main` creates a GitHub Release with four binaries and a checksum file.
+- A `v0.1.0` tag on `main` creates a GitHub Release with four binaries for each of `entropy53d` and `entropy53`, eight in total, and a checksum file.
 
 ## Out of scope
 

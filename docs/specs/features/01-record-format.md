@@ -2,7 +2,7 @@
 id: record-format
 feature: Record format and registry
 epic: "Epic 1: Record format"
-status: issued
+status: built
 issues: [12, 13, 14, 15, 16]
 mockups: []
 ---
@@ -137,6 +137,8 @@ type Chain struct {
     SigLen     int
     PrevSigLen int
 }
+
+const MaxRound uint64 = 1 << 53 // The highest valid round number.
 
 type Round struct {
     Number  uint64

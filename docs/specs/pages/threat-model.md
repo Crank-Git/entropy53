@@ -39,7 +39,7 @@ flowchart LR
 | Bad upstream | Sends junk. | The gateway discards it. Junk never reaches a resolver cache through the gateway. | The gateway verifies before it answers. |
 | Off-path attacker | Injects a false record into a resolver cache. | The client library returns `ErrInvalid` until that TTL ends. | The caller selects another resolver. DNSSEC is out of v1 scope. |
 | Off-path attacker | Injects a false negative answer. | The client library returns a negative error until that TTL ends. | Same control. |
-| Reflection attacker | Spoofs a source address and queries the gateway. | The size gain is about 4 to 7 times. | Rate limit per source prefix, with TC answers. |
+| Reflection attacker | Spoofs a source address and queries the gateway. | The size gain is about 4 to 8 times. A query of 42 bytes gets an answer of 324 bytes on `b.example`, a gain of 7.7. | Rate limit per source prefix, with TC answers. |
 | Query flood | Sends many random old round numbers. | Excess queries receive SERVFAIL. The store and upstreams stay within limits. | Budget for on-demand fetches. |
 | Query flood | Sends many random future round numbers. | The gateway computes the answer with no upstream request. | Arithmetic only. |
 | Resolver or observer | Reads the query names. | The observer learns which rounds a client reads. | None in v1. Stated in the draft. |

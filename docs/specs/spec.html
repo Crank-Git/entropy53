@@ -332,6 +332,8 @@ chain/                 public: registry and round arithmetic
 record/                public: encode and decode a record body
 client/                public: client library
 internal/gateway/      names, answers, store, upstream, follower, limits
+internal/version/      build version source
+scripts/               release build script and its test; scripts/refreshvectors/ refreshes the vectors
 testdata/vectors.json  vectors from real rounds
 test/interop/          interop tests against real resolvers
 draft/                 Internet-Draft source
@@ -507,7 +509,7 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li><strong>Depends on:</strong> Epic 2.
 </li>
-<li><strong>Exit criteria:</strong> <code>dig TXT round.1000.quicknet.&lt;zone&gt; @127.0.0.1 -p 5353</code> returns a round record. This is the first public demonstration.
+<li><strong>Exit criteria:</strong> <code>dig TXT round.1000.quicknet.&lt;zone&gt; @127.0.0.1 -p 15353</code> returns a round record. This is the first public demonstration.
 </li>
 </ul>
 <h3 id="epic-4-client-and-cli">Epic 4: Client and CLI</h3>
@@ -518,7 +520,7 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li><strong>Depends on:</strong> Epic 3.
 </li>
-<li><strong>Exit criteria:</strong> <code>entropy53 get quicknet 1000</code> prints verified randomness that equals the upstream value.
+<li><strong>Exit criteria:</strong> <code>entropy53 get quicknet 1000 --zone &lt;zone&gt;</code> prints verified randomness that equals the upstream value.
 </li>
 </ul>
 <h3 id="epic-5-interop-and-release">Epic 5: Interop and release</h3>
@@ -651,6 +653,28 @@ docs/operator-guide.md operator guide</code></pre>
 <li>2026-11-06: First draft for review.
 </li>
 <li>2026-11-06: The user approved the spec with no change. The Internet-Draft author block stays open until Epic 6.
+</li>
+<li>2026-11-06: The release builds both binaries on four targets, eight files in total. The "four binaries" criteria now state this.
+</li>
+<li>2026-11-06: The package <code>chain</code> exports <code>MaxRound</code>, so that <code>record</code> and the gateway use one bound.
+</li>
+<li>2026-11-06: <code>scripts/refreshvectors</code> reads the upstream <code>randomness</code> value as expected test data. This is the one exception to the rule that no code reads <code>randomness</code> from an upstream.
+</li>
+<li>2026-11-06: A follower that receives a verified round below the target round moves the preferred upstream to the next upstream. So an upstream stuck on an older round causes no outage.
+</li>
+<li>2026-11-06: Only a follower writes the latest round. An on-demand fetch does not change it.
+</li>
+<li>2026-11-06: The apex SOA and NS answers have a TTL of 3600, and a NODATA answer at the apex has a TTL of 60. The spec gave no value.
+</li>
+<li>2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
+</li>
+<li>2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
+</li>
+<li>2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
+</li>
+<li>2026-11-06: The interop workflow runs on pull requests into <code>dev</code> and <code>main</code>, so that a promotion also runs the suite before a release tag.
+</li>
+<li>2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a <code>default</code> answer is smaller than the 512-byte floor of <code>Msg.Truncate</code>.
 </li>
 </ul><nav class="pager">
 <span></span>

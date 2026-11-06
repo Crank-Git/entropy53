@@ -2,7 +2,7 @@
 id: client-library
 feature: Client library
 epic: "Epic 4: Client and CLI"
-status: issued
+status: built
 issues: [27, 28, 29]
 mockups: []
 ---
