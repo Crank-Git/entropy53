@@ -2,7 +2,7 @@
 id: foundation
 feature: Foundation
 epic: "Epic 0: Foundation"
-status: issued
+status: built
 issues: [8, 9, 10, 11]
 mockups: []
 ---
@@ -93,7 +93,7 @@ The project has no screen.
 - A pull request with a failing test shows a failed check.
 - `entropy53d --version` prints a non-empty string.
 - `entropy53 --version` prints a non-empty string.
-- A test tag on a fork or a dry run produces four binaries and a checksum file.
+- A test tag on a fork or a dry run produces four binaries for each of `entropy53d` and `entropy53`, eight in total, and a checksum file.
 - The repository contains both license files, and the README states `Apache-2.0 OR MIT`.
 - `dev` exists on the remote.
 

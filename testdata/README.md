@@ -19,4 +19,4 @@ Each vector object has these fields (FR-record-21):
 
 ## Refresh
 
-Run `make refresh-vectors` to rewrite the file from an upstream. The target contacts a real upstream, so no normal test runs it.
+Until issue #15 lands, `make refresh-vectors` exits non-zero and prints a message. It does not rewrite the file and does not contact an upstream. After #15, the target rewrites the file from a real upstream, so no normal test runs it.

@@ -6,7 +6,7 @@ A client verifies each round with a BLS signature against a public key in the re
 
 ## Build
 
-Build both binaries with `go build ./...`.
+Build both binaries with `go build -o . ./cmd/...`.
 Each binary prints the build version with `--version`.
 A build without a version prints `dev`.
 To set the version, build with:
