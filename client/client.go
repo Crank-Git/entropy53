@@ -136,3 +136,35 @@ func (c *Client) Round(ctx context.Context, n uint64) (Round, error) {
 	}
 	return c.verifyRecords(answer, n)
 }
+
+// staleAfter is the number of rounds that the latest round can trail the current round and still count as fresh.
+const staleAfter = 2
+
+// Latest returns the verified round at the latest name.
+//
+// Latest is for convenience. A gateway can select among recent rounds. Do not use Latest for a draw. Use Round with a pinned round number.
+//
+// It returns an error that wraps ErrTransport when the query fails.
+// It returns ErrWithheld for a negative answer, and reads no clock for it.
+// It returns ErrInvalid when no TXT record in the answer verifies.
+// It returns the verified round and an error that wraps ErrStale when the round trails the current round by more than 2 rounds.
+// A round above the current round passes, because a valid signature proves that the round exists.
+func (c *Client) Latest(ctx context.Context) (Round, error) {
+	name := fmt.Sprintf("latest.%s.%s", c.cfg.Chain.BeaconID, c.zone)
+	answer, err := c.query(ctx, name)
+	if err != nil {
+		return Round{}, err
+	}
+	if len(answer) == 0 {
+		return Round{}, fmt.Errorf("%w: no latest round of %s", ErrWithheld, c.cfg.Chain.BeaconID)
+	}
+	r, err := c.verifyRecords(answer, 0)
+	if err != nil {
+		return Round{}, err
+	}
+	// A clock that gives no current round cannot show the round to be stale.
+	if current, err := c.cfg.Chain.RoundAt(c.clock()); err == nil && current > r.Number+staleAfter {
+		return r, fmt.Errorf("%w: round %d of %s, current round %d", ErrStale, r.Number, r.Chain, current)
+	}
+	return r, nil
+}
