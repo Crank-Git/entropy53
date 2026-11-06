@@ -41,7 +41,17 @@ func (c ZoneConfig) Validate() error {
 	if len(c.NS) == 0 {
 		return errors.New("the zone needs at least one NS value")
 	}
+	// A malformed name starts the gateway, and then every SOA and NS answer fails to pack.
+	if _, ok := dns.IsDomainName(c.Zone); !ok {
+		return fmt.Errorf("the zone %q is not a valid domain name", c.Zone)
+	}
+	if _, ok := dns.IsDomainName(c.SOARname); !ok {
+		return fmt.Errorf("the SOA RNAME %q is not a valid domain name", c.SOARname)
+	}
 	for _, ns := range c.NS {
+		if _, ok := dns.IsDomainName(ns); !ok {
+			return fmt.Errorf("the NS host name %q is not a valid domain name", ns)
+		}
 		if dns.IsSubDomain(dns.CanonicalName(c.Zone), dns.CanonicalName(ns)) {
 			return fmt.Errorf("the NS host name %q is inside the zone %q", ns, c.Zone)
 		}

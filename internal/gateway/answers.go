@@ -118,7 +118,8 @@ func (h *handler) answer(r, m *dns.Msg) {
 	qtype := effectiveType(p.kind, q.Qtype)
 	switch p.kind {
 	case nameNone:
-		h.setNXDomain(m, ttlNXDomain)
+		m.Rcode = dns.RcodeNameError
+		m.Ns = append(m.Ns, h.soa(ttlNXDomain, ttlNXDomain))
 	case nameApex:
 		h.answerApex(m, qtype)
 	case nameChain, nameRoundParent:
@@ -203,13 +204,6 @@ func setRoundRecord(m *dns.Msg, owner string, c chain.Chain, rd chain.Round, ttl
 // setNoData makes m a NODATA answer with the zone SOA in the authority section.
 // The SOA TTL and the SOA MINIMUM both equal ttl, which is the negative TTL (RFC 2308 section 3).
 func (h *handler) setNoData(m *dns.Msg, ttl uint32) {
-	m.Rcode = dns.RcodeSuccess
-	m.Ns = append(m.Ns, h.soa(ttl, ttl))
-}
-
-// setNXDomain makes m an NXDOMAIN answer with the zone SOA, in the same way as setNoData.
-func (h *handler) setNXDomain(m *dns.Msg, ttl uint32) {
-	m.Rcode = dns.RcodeNameError
 	m.Ns = append(m.Ns, h.soa(ttl, ttl))
 }
 
@@ -267,7 +261,6 @@ func effectiveType(kind nameKind, qtype uint16) uint16 {
 // finish adds the OPT record when the query r has one, and truncates a UDP answer to the size that the client permits.
 // The DO bit stays clear, because the zone has no DNSSEC.
 func (h *handler) finish(w dns.ResponseWriter, r, m *dns.Msg) {
-	m.RecursionAvailable = false
 	size := dns.MinMsgSize
 	if opt := r.IsEdns0(); opt != nil {
 		m.SetEdns0(ednsUDPSize, false)

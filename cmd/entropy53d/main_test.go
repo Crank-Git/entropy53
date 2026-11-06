@@ -196,6 +196,20 @@ func TestMissingRequiredFlagExitsOneWithOneLogLine(t *testing.T) {
 	}
 }
 
+func TestMalformedNameFlagExitsOneWithOneLogLine(t *testing.T) {
+	url, _ := quietUpstream(t)
+	for _, name := range []string{"--zone", "--ns", "--soa-rname"} {
+		args := append(without(gatewayArgs(url), name), name, "a..b")
+		out, done := startGateway(args)
+		if code := waitCode(t, done); code != 1 {
+			t.Errorf("%s a..b: exit code = %d, want 1", name, code)
+		}
+		if n := out.lines(); n != 1 {
+			t.Errorf("%s a..b: %d log lines, want 1: %q", name, n, out.String())
+		}
+	}
+}
+
 func TestUnknownChainFailsStartup(t *testing.T) {
 	url, _ := quietUpstream(t)
 	args := append(without(gatewayArgs(url), "--chains"), "--chains", "quicknet,nosuchchain")

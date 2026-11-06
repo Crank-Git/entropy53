@@ -60,20 +60,25 @@ func (l *Listeners) Addr() string {
 // Run serves queries until ctx ends, then stops both servers and waits for them.
 // After ctx ends, in-flight queries have shutdownDrain to finish. Then Run cancels the Source calls that still wait,
 // and the servers have shutdownClose to close (FR-answers-44).
+// A server that still waits for a Source that ignores its context after shutdownClose does not delay Run.
+// Run writes one log line that names each such server and returns nil, so the process exits within 5 seconds.
 // It returns nil after a stop that ctx caused. A server that ends on its own stops the other one, and Run returns the cause.
 func (l *Listeners) Run(ctx context.Context) error {
 	defer l.cancelQueries()
 	started := make(chan struct{}, 2)
 	notify := func() { started <- struct{}{} }
-	servers := []*dns.Server{
-		{Listener: l.tcp, Handler: l.h, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify},
-		{PacketConn: l.udp, Handler: l.udpH, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify},
+	tcp := &dns.Server{Listener: l.tcp, Handler: l.h, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify}
+	udp := &dns.Server{PacketConn: l.udp, Handler: l.udpH, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify}
+	servers := []*dns.Server{tcp, udp}
+	pending := map[*dns.Server]string{tcp: "tcp", udp: "udp"}
+	type endResult struct {
+		srv *dns.Server
+		err error
 	}
-	ended := make(chan error, len(servers))
+	ended := make(chan endResult, len(servers))
 	for _, s := range servers {
-		go func() { ended <- s.ActivateAndServe() }()
+		go func() { ended <- endResult{s, s.ActivateAndServe()} }()
 	}
-	running := len(servers)
 
 	// ShutdownContext fails on a server that has not started, so Run waits for both start signals.
 	var runErr error
@@ -81,33 +86,50 @@ func (l *Listeners) Run(ctx context.Context) error {
 		select {
 		case <-started:
 			n++
-		case err := <-ended:
-			running--
-			runErr = endedError(err)
+		case e := <-ended:
+			delete(pending, e.srv)
+			runErr = endedError(e.err)
 		}
 	}
 	if runErr == nil {
 		select {
 		case <-ctx.Done():
-		case err := <-ended:
-			running--
-			runErr = endedError(err)
+		case e := <-ended:
+			delete(pending, e.srv)
+			runErr = endedError(e.err)
 		}
 	}
 
-	runErr = errors.Join(runErr, l.shutdown(servers))
-	for ; running > 0; running-- {
-		if err := <-ended; err != nil {
-			runErr = errors.Join(runErr, fmt.Errorf("DNS server: %w", err))
+	abandoned, shutErr := l.shutdown(servers)
+	runErr = errors.Join(runErr, shutErr)
+	// A server that shutdown abandoned can wait on a Source forever, so Run does not wait for it.
+	var unfinished []string
+	for _, s := range servers {
+		if _, ok := abandoned[s]; ok {
+			if name, wait := pending[s]; wait {
+				unfinished = append(unfinished, name)
+			}
+			delete(pending, s)
 		}
+	}
+	for len(pending) > 0 {
+		e := <-ended
+		delete(pending, e.srv)
+		if e.err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("DNS server: %w", e.err))
+		}
+	}
+	if len(unfinished) > 0 {
+		l.h.log.Warn("DNS servers did not finish within the close limit", "servers", unfinished)
 	}
 	return runErr
 }
 
 // shutdown stops the servers within shutdownDrain plus shutdownClose.
+// It returns the servers that did not finish within that limit. That outcome is no error.
 // ShutdownContext closes the UDP socket when it returns, so the cancel of the queries must come first.
 // A TCP connection that waits for a query ends at once, because ShutdownContext sets its read deadline.
-func (l *Listeners) shutdown(servers []*dns.Server) error {
+func (l *Listeners) shutdown(servers []*dns.Server) (map[*dns.Server]struct{}, error) {
 	stop, forceStop := context.WithCancel(context.Background())
 	defer forceStop()
 	finished := make(chan struct{})
@@ -127,17 +149,27 @@ func (l *Listeners) shutdown(servers []*dns.Server) error {
 		}
 	}()
 
-	errs := make(chan error, len(servers))
+	type stopResult struct {
+		srv *dns.Server
+		err error
+	}
+	results := make(chan stopResult, len(servers))
 	for _, s := range servers {
-		go func() { errs <- s.ShutdownContext(stop) }()
+		go func() { results <- stopResult{s, s.ShutdownContext(stop)} }()
 	}
 	var err error
+	abandoned := make(map[*dns.Server]struct{})
 	for range servers {
-		if e := <-errs; e != nil {
-			err = errors.Join(err, fmt.Errorf("shut down DNS server: %w", e))
+		r := <-results
+		switch {
+		case r.err == nil:
+		case errors.Is(r.err, context.Canceled):
+			abandoned[r.srv] = struct{}{}
+		default:
+			err = errors.Join(err, fmt.Errorf("shut down DNS server: %w", r.err))
 		}
 	}
-	return err
+	return abandoned, err
 }
 
 // endedError turns the end of a server before ctx ends into an error.

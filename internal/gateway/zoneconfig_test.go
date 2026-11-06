@@ -36,6 +36,31 @@ func TestValidateRejectsAConfigWithoutARequiredValue(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsMalformedNames(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*ZoneConfig)
+		want   string
+	}{
+		{"zone", func(c *ZoneConfig) { c.Zone = "a..b" }, "zone"},
+		{"ns", func(c *ZoneConfig) { c.NS = []string{"ns1.example.net.", "a..b"} }, "NS"},
+		{"soa-rname", func(c *ZoneConfig) { c.SOARname = "a..b" }, "SOA RNAME"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testConfig(t)
+			tt.mutate(&cfg)
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Validate returned nil")
+			}
+			if !strings.Contains(err.Error(), tt.want) || !strings.Contains(err.Error(), "a..b") {
+				t.Errorf("error %q does not name %q and the bad value", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateRejectsANameServerInsideTheZone(t *testing.T) {
 	for _, ns := range []string{"NS1.BEACON.EXAMPLE", "beacon.example.", "ns1.sub.beacon.example."} {
 		cfg := testConfig(t)
