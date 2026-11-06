@@ -1,9 +1,12 @@
 package gateway
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/Crank-Git/entropy53/chain"
+	"github.com/miekg/dns"
 )
 
 // ZoneConfig holds the DNS settings of the gateway.
@@ -23,4 +26,25 @@ type ZoneConfig struct {
 	UDPRate int
 	// Log receives the diagnostics of the DNS listeners. A nil value selects slog.Default.
 	Log *slog.Logger
+}
+
+// Validate reports why cfg cannot start a gateway, or nil when it can.
+// It requires a zone, an SOA RNAME and at least one NS value, and it rejects an NS host name inside the zone (FR-answers-27).
+// An in-zone name server needs glue records that the gateway does not serve.
+func (c ZoneConfig) Validate() error {
+	if c.Zone == "" {
+		return errors.New("the zone is required")
+	}
+	if c.SOARname == "" {
+		return errors.New("the SOA RNAME is required")
+	}
+	if len(c.NS) == 0 {
+		return errors.New("the zone needs at least one NS value")
+	}
+	for _, ns := range c.NS {
+		if dns.IsSubDomain(dns.CanonicalName(c.Zone), dns.CanonicalName(ns)) {
+			return fmt.Errorf("the NS host name %q is inside the zone %q", ns, c.Zone)
+		}
+	}
+	return nil
 }
