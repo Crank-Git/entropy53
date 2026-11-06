@@ -53,7 +53,8 @@ type Client struct {
 
 // New returns a Client for cfg.
 // It uses the first system resolver when cfg.Resolver is empty.
-// It returns an error for a malformed zone or resolver, or when no system resolver exists.
+// It returns an error for a malformed zone or resolver, a chain with no public key or a period below 1,
+// or when no system resolver exists.
 func New(cfg Config) (*Client, error) {
 	return newClient(cfg, "/etc/resolv.conf")
 }
@@ -62,6 +63,12 @@ func New(cfg Config) (*Client, error) {
 func newClient(cfg Config, resolvConfPath string) (*Client, error) {
 	if _, ok := dns.IsDomainName(cfg.Zone); !ok || dns.Fqdn(cfg.Zone) == "." {
 		return nil, fmt.Errorf("client: zone %q is not a valid domain name", cfg.Zone)
+	}
+	if len(cfg.Chain.PublicKey) == 0 {
+		return nil, fmt.Errorf("client: chain %q has no public key", cfg.Chain.BeaconID)
+	}
+	if cfg.Chain.Period < 1 {
+		return nil, fmt.Errorf("client: chain %q has a period below 1 second", cfg.Chain.BeaconID)
 	}
 	resolver := cfg.Resolver
 	if resolver == "" {
@@ -110,13 +117,22 @@ func systemResolver(path string) (string, error) {
 	return net.JoinHostPort(conf.Servers[0], conf.Port), nil
 }
 
-// Round queries the round record for round number n.
+// Round returns the verified round with number n.
+// It returns an argument error, with no query sent, when n is outside 1 to chain.MaxRound.
 // It returns an error that wraps ErrTransport when the query fails.
-// Verification is not complete yet, so a successful query returns ErrInvalid and no round.
+// It returns ErrNotPublished or ErrWithheld for a negative answer, by the clock and the grace time.
+// It returns ErrInvalid when no TXT record in the answer verifies as round n.
 func (c *Client) Round(ctx context.Context, n uint64) (Round, error) {
+	if n < 1 || n > chain.MaxRound {
+		return Round{}, fmt.Errorf("client: round %d is outside 1 to %d", n, chain.MaxRound)
+	}
 	name := fmt.Sprintf("round.%d.%s.%s", n, c.cfg.Chain.BeaconID, c.zone)
-	if _, err := c.query(ctx, name); err != nil {
+	answer, err := c.query(ctx, name)
+	if err != nil {
 		return Round{}, err
 	}
-	return Round{}, fmt.Errorf("%w: the client library does not verify records yet", ErrInvalid)
+	if len(answer) == 0 {
+		return Round{}, c.negative(n)
+	}
+	return c.verifyRecords(answer, n)
 }
