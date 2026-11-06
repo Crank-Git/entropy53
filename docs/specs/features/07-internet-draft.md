@@ -119,4 +119,4 @@ Submission to the IETF, working group adoption, a media type and an IANA registr
 
 ## Open questions
 
-- The author name and the contact address. The maintainer supplies these before Epic 6 starts.
+None. The maintainer supplied the author name and the contact address.

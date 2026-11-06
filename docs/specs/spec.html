@@ -228,7 +228,7 @@ body.rv-open .layout { padding-right:21rem; }
 </table></div>
 <h2 id="goals">Goals</h2>
 <ol>
-<li>A client reads and verifies any published round of all three chains through an unmodified resolver.
+<li>A client reads and verifies any published round of all three chains through an unmodified resolver. One round is an exception: round 1 of <code>default</code> has a 32-byte previous signature, which the record body cannot hold, so the gateway does not serve it.
 </li>
 <li>A gateway never returns a round that it has not verified.
 </li>
@@ -580,9 +580,9 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 </ul>
 <h2 id="risks-open-questions" class="callout-h">Risks &amp; open questions</h2>
-<p>No item blocks approval. The first item needs an answer before Epic 6 starts.</p>
+<p>No item blocks approval.</p>
 <ol>
-<li><strong>Open: draft author block.</strong> The Internet-Draft needs an author name and a contact address. The maintainer supplies these. The address is public and permanent if the draft is submitted.
+<li><strong>Answered: draft author block.</strong> The maintainer supplied the author name Christian Crank and the contact address info@nocturnaltendenciesllc.com. The author block has no organization. The address is public and permanent if the draft is submitted.
 </li>
 <li><strong>Resolver limits on a negative TTL.</strong> A resolver with a raised minimum negative TTL can delay a pinned round. Unbound <code>cache-min-negative-ttl</code> defaults to 0, so default Unbound is safe. The interop tests measure this on default Unbound and default BIND. Goal 3 applies to default settings only.
 </li>
@@ -675,6 +675,8 @@ docs/operator-guide.md operator guide</code></pre>
 <li>2026-11-06: The interop workflow runs on pull requests into <code>dev</code> and <code>main</code>, so that a promotion also runs the suite before a release tag.
 </li>
 <li>2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a <code>default</code> answer is smaller than the 512-byte floor of <code>Msg.Truncate</code>.
+</li>
+<li>2026-11-06: The maintainer ruled on #46. The record layout stays, and round 1 of <code>default</code> is not served, because its previous signature has 32 bytes. Goal 1, FR-record-8 and the Internet-Draft state the exception. The maintainer also supplied the Internet-Draft author block.
 </li>
 </ul><nav class="pager">
 <span></span>

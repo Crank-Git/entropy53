@@ -31,7 +31,7 @@ This feature set fixes the round record and the registry. The gateway, the clien
 - FR-record-5 — `Chain.RoundTime(n)` returns `genesis + (n-1) * period`.
 - FR-record-6 — `Chain.RoundAt(t)` returns `floor((t-genesis)/period)+1` for a time at or after genesis.
 - FR-record-7 — `Chain.RoundAt(t)` returns an error for a time before genesis.
-- FR-record-8 — A valid round number is an integer from 1 to 2^53, inclusive.
+- FR-record-8 — A valid round number is an integer from 1 to 2^53, inclusive, except round 1 of `default`, which the record body cannot hold.
 - FR-record-23 — `Chain.RoundAfter(t)` returns the lowest round number with a round time at or after `t`.
 - FR-record-24 — `Chain.RoundAfter(t)` returns an error for a time before genesis.
 
