@@ -154,7 +154,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: CLI</h1>
-<p class="meta">Epic 4: Client and CLI &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 4: Client and CLI &nbsp; <span class="badge">built</span></p>
 <h3 id="cli-purpose">Purpose</h3>
 <p>This feature set gives a draw organizer the full procedure with no code: convert a time to a round number, then read and verify the round later. The CLI is a thin layer on the client library.</p>
 <h3 id="cli-user-stories">User stories</h3>
@@ -271,7 +271,7 @@ error: no record verifies. The gateway or the resolver returned a bad record.</c
 <h3 id="cli-data-touched">Data touched</h3>
 <p>The CLI reads the registry. The CLI writes no file.</p>
 <h3 id="cli-interfaces">Interfaces</h3>
-<p>The CLI uses only the public packages <code>chain</code> and <code>client</code>. It has no external interface of its own.</p>
+<p>The CLI uses the public packages <code>chain</code> and <code>client</code>, and <code>internal/version</code>. It has no external interface of its own.</p>
 <h3 id="cli-edge-cases-failures">Edge cases &amp; failures</h3>
 <ul>
 <li>The <code>--json</code> flag with an error: the CLI writes a JSON object with an <code>error</code> field to standard output, and uses the same exit code.
