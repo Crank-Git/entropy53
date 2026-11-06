@@ -14,6 +14,8 @@ type Listeners struct {
 	tcp net.Listener
 	udp net.PacketConn
 	h   *handler
+	// udpH serves the UDP socket. It is h, or h behind the UDP limit.
+	udpH dns.Handler
 }
 
 // NewListeners binds the TCP and UDP sockets of cfg.Listen and returns Listeners that answer from src.
@@ -32,7 +34,12 @@ func NewListeners(cfg ZoneConfig, src Source) (*Listeners, error) {
 		_ = tcp.Close()
 		return nil, fmt.Errorf("listen on UDP %s: %w", tcp.Addr(), err)
 	}
-	return &Listeners{tcp: tcp, udp: udp, h: newHandler(cfg, src)}, nil
+	h := newHandler(cfg, src)
+	var udpH dns.Handler = h
+	if cfg.UDPRate > 0 {
+		udpH = &limitHandler{limit: newUDPLimit(cfg.UDPRate, udpLimitCapacity, realClock{}), next: h}
+	}
+	return &Listeners{tcp: tcp, udp: udp, h: h, udpH: udpH}, nil
 }
 
 // Addr returns the address of both sockets, for example "127.0.0.1:5353".
@@ -47,7 +54,7 @@ func (l *Listeners) Run(ctx context.Context) error {
 	notify := func() { started <- struct{}{} }
 	servers := []*dns.Server{
 		{Listener: l.tcp, Handler: l.h, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify},
-		{PacketConn: l.udp, Handler: l.h, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify},
+		{PacketConn: l.udp, Handler: l.udpH, MsgAcceptFunc: acceptQuery, NotifyStartedFunc: notify},
 	}
 	ended := make(chan error, len(servers))
 	for _, s := range servers {

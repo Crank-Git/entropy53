@@ -19,6 +19,8 @@ type ZoneConfig struct {
 	// Listen is the address for the UDP and TCP sockets, for example "0.0.0.0:53".
 	// Port 0 selects a port that the OS assigns, and both sockets share it.
 	Listen string
+	// UDPRate is the most UDP answers per second for each source prefix. Zero sets no limit.
+	UDPRate int
 	// Log receives the diagnostics of the DNS listeners. A nil value selects slog.Default.
 	Log *slog.Logger
 }
