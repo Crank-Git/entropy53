@@ -648,6 +648,10 @@ The key `txt` occurs once for each character-string, in the order of the record.
 A decoder concatenates the values of all `txt` keys of one vector, as {{record-body}} specifies.
 The vector of `default` has two character-strings, of 255 and 13 characters, so it has two `txt` lines.
 
+A `txt` value is never empty.
+A test suite MAY hold the same fields in another container, for example a JSON object with the `txt` values as an array of strings.
+The values in the container equal the values in this appendix.
+
 All three vectors are for round 1000.
 
 ## `quicknet` {#vec-quicknet}
