@@ -229,6 +229,7 @@ A decoder MUST reject the concatenated text in each of these cases:
 * The text has a character outside the standard alphabet, and the padding character `=` is the only extra character allowed.
   This includes a space, a tab, a carriage return and a line feed.
 * The text has padding that is missing, too long, or not at the end.
+  Padding is too long when it has more than two `=` characters.
   A text whose length is not a multiple of 4 has padding that is missing or too long.
 * The last base64 character has non-zero bits that the decoded bytes do not use.
 
