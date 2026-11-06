@@ -31,7 +31,7 @@ Epic 3 is the first epic with a working gateway. Before that epic, the binaries 
 4. Read and verify a round with the CLI.
 
    ```
-   /tmp/entropy53 get quicknet 1000 --zone beacon.example --resolver 127.0.0.1:5353
+   /tmp/entropy53 get quicknet 1000 --zone beacon.example --resolver 127.0.0.1:15353
    ```
 
    The randomness for this round is `fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd`.

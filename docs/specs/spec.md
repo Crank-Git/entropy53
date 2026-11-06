@@ -386,7 +386,7 @@ A change is done when:
 - **Goal:** A draw organizer pins a round and later verifies the round.
 - **Covers:** [04-client-library](features/04-client-library.md), [05-cli](features/05-cli.md).
 - **Depends on:** Epic 3.
-- **Exit criteria:** `entropy53 get quicknet 1000` prints verified randomness that equals the upstream value.
+- **Exit criteria:** `entropy53 get quicknet 1000 --zone <zone>` prints verified randomness that equals the upstream value.
 
 ### Epic 5: Interop and release
 
@@ -504,3 +504,4 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 - 2026-11-06: The apex SOA and NS answers have a TTL of 3600, and a NODATA answer at the apex has a TTL of 60. The spec gave no value.
 - 2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
 - 2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
+- 2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.

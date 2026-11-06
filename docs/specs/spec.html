@@ -520,7 +520,7 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li><strong>Depends on:</strong> Epic 3.
 </li>
-<li><strong>Exit criteria:</strong> <code>entropy53 get quicknet 1000</code> prints verified randomness that equals the upstream value.
+<li><strong>Exit criteria:</strong> <code>entropy53 get quicknet 1000 --zone &lt;zone&gt;</code> prints verified randomness that equals the upstream value.
 </li>
 </ul>
 <h3 id="epic-5-interop-and-release">Epic 5: Interop and release</h3>
@@ -669,6 +669,8 @@ docs/operator-guide.md operator guide</code></pre>
 <li>2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
 </li>
 <li>2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
+</li>
+<li>2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
 </li>
 </ul><nav class="pager">
 <span></span>
