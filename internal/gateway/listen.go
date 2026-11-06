@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"syscall"
 	"time"
 
 	"github.com/miekg/dns"
@@ -33,14 +34,11 @@ const (
 // It binds TCP first, so that port 0 gives one port to both sockets.
 // The caller runs cfg.Validate first. NewListeners returns an error when a socket cannot bind. It starts no goroutine.
 func NewListeners(cfg ZoneConfig, src Source) (*Listeners, error) {
-	tcp, err := net.Listen("tcp", cfg.Listen)
+	tcp, udp, err := bindPair(cfg.Listen, func(addr string) (net.PacketConn, error) {
+		return net.ListenPacket("udp", addr)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("listen on TCP %s: %w", cfg.Listen, err)
-	}
-	udp, err := net.ListenPacket("udp", tcp.Addr().String())
-	if err != nil {
-		_ = tcp.Close()
-		return nil, fmt.Errorf("listen on UDP %s: %w", tcp.Addr(), err)
+		return nil, err
 	}
 	h := newHandler(cfg, src)
 	queryCtx, cancelQueries := context.WithCancel(context.Background())
@@ -50,6 +48,35 @@ func NewListeners(cfg ZoneConfig, src Source) (*Listeners, error) {
 		udpH = &limitHandler{limit: newUDPLimit(cfg.UDPRate, udpLimitCapacity, realClock{}), next: h}
 	}
 	return &Listeners{tcp: tcp, udp: udp, h: h, udpH: udpH, clock: realClock{}, cancelQueries: cancelQueries}, nil
+}
+
+// maxBindAttempts is the number of times that bindPair tries a port that the OS assigns.
+const maxBindAttempts = 5
+
+// bindPair binds TCP on listen, then binds UDP on the port of that TCP socket with bindUDP.
+// Another process can already hold the UDP port that the OS assigned to TCP.
+// When listen has port 0 and the UDP port is in use, bindPair closes the TCP socket and tries again with a new port.
+// It makes at most maxBindAttempts attempts. An explicit port fails at once.
+func bindPair(listen string, bindUDP func(addr string) (net.PacketConn, error)) (net.Listener, net.PacketConn, error) {
+	_, port, _ := net.SplitHostPort(listen)
+	attempts := 1
+	if port == "0" {
+		attempts = maxBindAttempts
+	}
+	for attempt := 1; ; attempt++ {
+		tcp, err := net.Listen("tcp", listen)
+		if err != nil {
+			return nil, nil, fmt.Errorf("listen on TCP %s: %w", listen, err)
+		}
+		udp, err := bindUDP(tcp.Addr().String())
+		if err == nil {
+			return tcp, udp, nil
+		}
+		_ = tcp.Close()
+		if attempt >= attempts || !errors.Is(err, syscall.EADDRINUSE) {
+			return nil, nil, fmt.Errorf("listen on UDP %s: %w", tcp.Addr(), err)
+		}
+	}
 }
 
 // Addr returns the address of both sockets, for example "127.0.0.1:5353".

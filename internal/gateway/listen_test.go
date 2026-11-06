@@ -2,10 +2,12 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -98,5 +100,72 @@ func TestNewListenersFailsWhenPortIsBusy(t *testing.T) {
 	cfg.Listen = busy.Addr().String()
 	if l, err := NewListeners(cfg, &fakeSource{}); err == nil {
 		t.Errorf("NewListeners on a busy port returned %v and no error", l)
+	}
+}
+
+func realUDP(addr string) (net.PacketConn, error) { return net.ListenPacket("udp", addr) }
+
+func TestListenRetriesWhenUDPPortIsTaken(t *testing.T) {
+	var tried []string
+	bindUDP := func(addr string) (net.PacketConn, error) {
+		tried = append(tried, addr)
+		if len(tried) == 1 {
+			return nil, syscall.EADDRINUSE
+		}
+		return realUDP(addr)
+	}
+	tcp, udp, err := bindPair("127.0.0.1:0", bindUDP)
+	if err != nil {
+		t.Fatalf("bindPair: %v", err)
+	}
+	defer func() { _ = tcp.Close(); _ = udp.Close() }()
+	if len(tried) != 2 {
+		t.Fatalf("UDP bind attempts = %d, want 2", len(tried))
+	}
+	// The TCP socket of the first attempt must be closed, so its port binds again.
+	again, err := net.Listen("tcp", tried[0])
+	if err != nil {
+		t.Errorf("TCP port of the first attempt is still bound: %v", err)
+	} else {
+		_ = again.Close()
+	}
+}
+
+func TestListenFailsAfterBoundedRetries(t *testing.T) {
+	attempts := 0
+	bindUDP := func(string) (net.PacketConn, error) {
+		attempts++
+		return nil, syscall.EADDRINUSE
+	}
+	_, _, err := bindPair("127.0.0.1:0", bindUDP)
+	if !errors.Is(err, syscall.EADDRINUSE) {
+		t.Errorf("error = %v, want EADDRINUSE", err)
+	}
+	if attempts != maxBindAttempts {
+		t.Errorf("attempts = %d, want %d", attempts, maxBindAttempts)
+	}
+}
+
+func TestExplicitPortDoesNotRetry(t *testing.T) {
+	udp, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("ListenPacket: %v", err)
+	}
+	defer func() { _ = udp.Close() }()
+	attempts := 0
+	counted := func(addr string) (net.PacketConn, error) {
+		attempts++
+		return realUDP(addr)
+	}
+	cfg := testConfig(t)
+	cfg.Listen = udp.LocalAddr().String()
+	if _, _, err := bindPair(cfg.Listen, counted); !errors.Is(err, syscall.EADDRINUSE) {
+		t.Errorf("error = %v, want EADDRINUSE", err)
+	}
+	if attempts != 1 {
+		t.Errorf("attempts = %d, want 1", attempts)
+	}
+	if l, err := NewListeners(cfg, &fakeSource{}); err == nil {
+		t.Errorf("NewListeners on a taken UDP port returned %v and no error", l)
 	}
 }
