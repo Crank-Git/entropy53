@@ -499,3 +499,5 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 - 2026-11-06: The release builds both binaries on four targets, eight files in total. The "four binaries" criteria now state this.
 - 2026-11-06: The package `chain` exports `MaxRound`, so that `record` and the gateway use one bound.
 - 2026-11-06: `scripts/refreshvectors` reads the upstream `randomness` value as expected test data. This is the one exception to the rule that no code reads `randomness` from an upstream.
+- 2026-11-06: A follower that receives a verified round below the target round moves the preferred upstream to the next upstream. So an upstream stuck on an older round causes no outage.
+- 2026-11-06: Only a follower writes the latest round. An on-demand fetch does not change it.
