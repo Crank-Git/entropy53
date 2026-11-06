@@ -2,7 +2,7 @@
 id: gateway-answers
 feature: Gateway answers
 epic: "Epic 3: Gateway answers"
-status: issued
+status: built
 issues: [21, 22, 23, 24, 25, 26]
 mockups: []
 ---
@@ -92,7 +92,7 @@ That statement holds after publication. This feature adds the rules for the time
 
 ### Process
 
-- FR-answers-44 — On SIGTERM, the gateway completes in-flight queries, then exits with code 0 within 5 seconds.
+- FR-answers-44 — On SIGTERM, the gateway completes in-flight queries for 3 seconds, answers each query that still waits with SERVFAIL, then exits with code 0 within 5 seconds.
 - FR-answers-45 — The gateway exits with code 1 and one log line when a required flag is missing.
 
 ## User flows
@@ -188,6 +188,8 @@ A resolver with QNAME minimization asks for `<n>.<chain>.<zone>` before `round.<
 | NODATA, no latest yet | 1 | Same reason. |
 | NODATA, other type or empty non-terminal | 60 | Applies per type, and never hides a TXT record. |
 | NXDOMAIN | 3600 | Only an invalid name reaches this. |
+
+The apex SOA and NS answers have a TTL of 3600. A NODATA answer at the apex has a TTL of 60.
 
 The negative TTL comes from the smaller of the SOA TTL and the SOA MINIMUM (RFC 2308 section 3). The gateway sets both to the computed value.
 

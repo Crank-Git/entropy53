@@ -509,7 +509,7 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li><strong>Depends on:</strong> Epic 2.
 </li>
-<li><strong>Exit criteria:</strong> <code>dig TXT round.1000.quicknet.&lt;zone&gt; @127.0.0.1 -p 5353</code> returns a round record. This is the first public demonstration.
+<li><strong>Exit criteria:</strong> <code>dig TXT round.1000.quicknet.&lt;zone&gt; @127.0.0.1 -p 15353</code> returns a round record. This is the first public demonstration.
 </li>
 </ul>
 <h3 id="epic-4-client-and-cli">Epic 4: Client and CLI</h3>
@@ -663,6 +663,12 @@ docs/operator-guide.md operator guide</code></pre>
 <li>2026-11-06: A follower that receives a verified round below the target round moves the preferred upstream to the next upstream. So an upstream stuck on an older round causes no outage.
 </li>
 <li>2026-11-06: Only a follower writes the latest round. An on-demand fetch does not change it.
+</li>
+<li>2026-11-06: The apex SOA and NS answers have a TTL of 3600, and a NODATA answer at the apex has a TTL of 60. The spec gave no value.
+</li>
+<li>2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
+</li>
+<li>2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
 </li>
 </ul><nav class="pager">
 <span></span>

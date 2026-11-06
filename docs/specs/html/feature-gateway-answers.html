@@ -154,7 +154,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Gateway answers</h1>
-<p class="meta">Epic 3: Gateway answers &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 3: Gateway answers &nbsp; <span class="badge">built</span></p>
 <h3 id="gateway-answers-purpose">Purpose</h3>
 <p>This feature set makes the gateway an authoritative DNS server. It decides each RCODE and each TTL. The TTL rules are the center of the design, because a wrong negative answer stays in a resolver cache after the round is published.</p>
 <p>The brief states the design driver:</p>
@@ -281,7 +281,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h4 id="gateway-answers-process">Process</h4>
 <ul>
-<li>FR-answers-44 — On SIGTERM, the gateway completes in-flight queries, then exits with code 0 within 5 seconds.
+<li>FR-answers-44 — On SIGTERM, the gateway completes in-flight queries for 3 seconds, answers each query that still waits with SERVFAIL, then exits with code 0 within 5 seconds.
 </li>
 <li>FR-answers-45 — The gateway exits with code 1 and one log line when a required flag is missing.
 </li>
@@ -374,6 +374,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>NODATA, other type or empty non-terminal</td><td>60</td><td>Applies per type, and never hides a TXT record.</td></tr>
 <tr><td>NXDOMAIN</td><td>3600</td><td>Only an invalid name reaches this.</td></tr>
 </table></div>
+<p>The apex SOA and NS answers have a TTL of 3600. A NODATA answer at the apex has a TTL of 60.</p>
 <p>The negative TTL comes from the smaller of the SOA TTL and the SOA MINIMUM (RFC 2308 section 3). The gateway sets both to the computed value.</p>
 <h4 id="gateway-answers-soa-fields">SOA fields</h4>
 <ul>

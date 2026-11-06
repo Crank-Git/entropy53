@@ -379,7 +379,7 @@ A change is done when:
 - **Goal:** `dig` receives a correct answer for each name shape.
 - **Covers:** [03-gateway-answers](features/03-gateway-answers.md).
 - **Depends on:** Epic 2.
-- **Exit criteria:** `dig TXT round.1000.quicknet.<zone> @127.0.0.1 -p 5353` returns a round record. This is the first public demonstration.
+- **Exit criteria:** `dig TXT round.1000.quicknet.<zone> @127.0.0.1 -p 15353` returns a round record. This is the first public demonstration.
 
 ### Epic 4: Client and CLI
 
@@ -501,3 +501,6 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 - 2026-11-06: `scripts/refreshvectors` reads the upstream `randomness` value as expected test data. This is the one exception to the rule that no code reads `randomness` from an upstream.
 - 2026-11-06: A follower that receives a verified round below the target round moves the preferred upstream to the next upstream. So an upstream stuck on an older round causes no outage.
 - 2026-11-06: Only a follower writes the latest round. An on-demand fetch does not change it.
+- 2026-11-06: The apex SOA and NS answers have a TTL of 3600, and a NODATA answer at the apex has a TTL of 60. The spec gave no value.
+- 2026-11-06: A limited UDP answer holds only the header, the question and the TC bit, with no OPT and no AA.
+- 2026-11-06: On shutdown, a query still waiting after 3 seconds receives SERVFAIL, so the process exits within 5 seconds with four stalled upstreams.
