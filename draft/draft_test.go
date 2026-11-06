@@ -153,7 +153,7 @@ func TestDraftForbidsNXDOMAINForFutureRoundWithReason(t *testing.T) {
 
 func TestDraftRequiresClientToComputeRandomnessAndVerify(t *testing.T) {
 	requireText(t, section(t, "Client Procedure"),
-		"MUST verify the signature before it uses any value from the record body",
+		"MUST NOT return a value from the record, or act on one, until the signature verifies",
 		"MUST compute `randomness`",
 		"MUST NOT read `randomness` from a gateway")
 }
@@ -162,7 +162,19 @@ func TestDraftStatesDefaultRoundOneException(t *testing.T) {
 	requireText(t, section(t, "Record Body"),
 		"Round 1 of `default` has a previous signature of 32 bytes",
 		"gateway MUST return SERVFAIL",
-		"client MUST reject a record body for round 1 of `default`")
+		"it cannot verify, because the previous signature of that round has 32 bytes")
+}
+
+func TestDraftStatesBase64RejectionCases(t *testing.T) {
+	requireText(t, section(t, "Record Body"),
+		"a character outside the standard alphabet",
+		"padding that is missing, too long, or not at the end",
+		"non-zero bits")
+}
+
+func TestDraftStatesRecordBodyCheckOrder(t *testing.T) {
+	requireText(t, section(t, "Record Body"),
+		"checks the length first, then the version, then the round number")
 }
 
 func TestDraftStatesNoIANAAction(t *testing.T) {

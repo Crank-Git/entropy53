@@ -196,6 +196,8 @@ A decoder MUST reject a body whose length differs from the exact length for the 
 A decoder MUST check the length before it reads any field.
 A decoder MUST reject a version other than 0x01.
 A decoder MUST reject a round number below 1 or above 2^53.
+A decoder checks the length first, then the version, then the round number.
+Every order rejects the same bodies, so the order changes only which failure a decoder reports.
 
 ## Base64 Text
 
@@ -211,7 +213,12 @@ The text of `default` needs two strings.
 A decoder MUST concatenate all character-strings of one TXT record before it decodes the base64 text.
 A decoder MUST NOT rely on a split at octet 255, and MUST accept a split at any position.
 A decoder MUST ignore a zero-length character-string.
-A decoder MUST reject text that has white space, a line break, missing padding, or non-zero trailing bits.
+A decoder MUST reject the concatenated text in each of these cases:
+
+* The text has a character outside the standard alphabet, and the padding character `=` is the only extra character allowed.
+  This includes a space, a tab, a carriage return and a line feed.
+* The text has padding that is missing, too long, or not at the end.
+* The last base64 character has non-zero bits that the decoded bytes do not use.
 
 Example.
 The round record for round 1000 of `quicknet` is this single character-string:
@@ -231,7 +238,9 @@ That round verifies in drand, but the layout above cannot hold it.
 The layout stays as it is, and this version does not serve that round.
 For the round name of round 1 of `default`, a gateway MUST return SERVFAIL.
 The label `1` stays valid, so a gateway MUST NOT return NXDOMAIN.
-A client MUST reject a record body for round 1 of `default`, because its length is not 201 bytes.
+A record body of 137 bytes for round 1 fails the length check of {{record-body}}.
+A record body of 201 bytes that claims round 1 passes the length check, but it cannot verify, because the previous signature of that round has 32 bytes.
+The signature check of {{check-record}} rejects such a body.
 
 ## Version
 
@@ -386,7 +395,8 @@ For each TXT record, a client does these steps:
    If the signature does not verify, the record fails.
 5. Compute `randomness` as the SHA-256 hash of the signature.
 
-A client MUST verify the signature before it uses any value from the record body.
+A client MAY use the fields of the record body to run the checks above.
+A client MUST NOT return a value from the record, or act on one, until the signature verifies.
 A client MUST compute `randomness` from the signature.
 A client MUST compute `randomness` as above and MUST NOT read `randomness` from a gateway or from an upstream.
 A client MUST NOT return a round that failed verification.
