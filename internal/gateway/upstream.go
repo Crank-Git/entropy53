@@ -59,6 +59,9 @@ type Upstreams struct {
 	// client is a field so that a test can shorten its timeout.
 	client *http.Client
 
+	clock clock
+	store *store
+
 	mu sync.Mutex
 	// preferred holds, per chain hash, the index of the upstream that last succeeded.
 	preferred map[string]int
@@ -78,6 +81,8 @@ func NewUpstreams(cfg Config) *Upstreams {
 		upstreams: list,
 		log:       log,
 		client:    &http.Client{Timeout: requestTimeout},
+		clock:     realClock{},
+		store:     newStore(storeCapacity),
 		preferred: make(map[string]int),
 	}
 }
@@ -96,14 +101,22 @@ var (
 	errTooEarly     = errors.New("round not published")
 )
 
-// fetchRound returns round n of chain c from the first upstream that answers.
-// The result is not verified. It returns Unavailable for round 0 and for a round above chain.MaxRound
+// fetchRound returns round n of chain c from the first upstream that gives a verified round.
+// It returns Unavailable for round 0 and for a round above chain.MaxRound
 // without a request, because the path public/0 returns the latest round.
 // It returns NotPublished at the first HTTP 425 and tries no other upstream.
 func (u *Upstreams) fetchRound(ctx context.Context, c chain.Chain, n uint64) (chain.Round, Status) {
 	if n == 0 || n > chain.MaxRound {
 		return chain.Round{}, Unavailable
 	}
+	return u.fetchPath(ctx, c, strconv.FormatUint(n, 10), n)
+}
+
+// fetchPath requests public/label from the upstreams in order and keeps the first verified round.
+// The want argument is the requested round number, or 0 when label is latest and no number is requested.
+// A round with another number, a wrong previous signature length or a failed signature check
+// is discarded with one log line, and the next upstream is tried (FR-upstream-4 to FR-upstream-7).
+func (u *Upstreams) fetchPath(ctx context.Context, c chain.Chain, label string, want uint64) (chain.Round, Status) {
 	start := u.start(c.ChainHash)
 	for i := range u.upstreams {
 		if ctx.Err() != nil {
@@ -111,19 +124,38 @@ func (u *Upstreams) fetchRound(ctx context.Context, c chain.Chain, n uint64) (ch
 		}
 		idx := (start + i) % len(u.upstreams)
 		base := u.upstreams[idx]
-		r, err := u.get(ctx, base, c, n)
+		r, err := u.get(ctx, base, c, label)
 		switch {
-		case err == nil:
-			u.setStart(c.ChainHash, idx)
-			return r, Found
 		case errors.Is(err, errTooEarly):
 			return chain.Round{}, NotPublished
-		case ctx.Err() != nil:
-			return chain.Round{}, Unavailable
+		case err != nil:
+			if ctx.Err() != nil {
+				return chain.Round{}, Unavailable
+			}
+			u.log.Warn("upstream failed", "upstream", base, "beacon_id", c.BeaconID, "path", label, "error", err)
+			continue
 		}
-		u.log.Warn("upstream failed", "upstream", base, "beacon_id", c.BeaconID, "round", n, "error", err)
+		if err := checkRound(c, r, want); err != nil {
+			u.log.Warn("round discarded", "upstream", base, "beacon_id", c.BeaconID, "path", label, "round", r.Number, "error", err)
+			continue
+		}
+		u.store.put(c.BeaconID, r)
+		u.setStart(c.ChainHash, idx)
+		return r, Found
 	}
 	return chain.Round{}, Unavailable
+}
+
+// checkRound returns an error when r is not the requested round or fails verification.
+// An unchained scheme does not sign the previous signature, so a wrong length is rejected first.
+func checkRound(c chain.Chain, r chain.Round, want uint64) error {
+	if want != 0 && r.Number != want {
+		return fmt.Errorf("round number %d, requested %d", r.Number, want)
+	}
+	if len(r.PrevSig) != c.PrevSigLen {
+		return fmt.Errorf("previous signature has %d bytes, want %d", len(r.PrevSig), c.PrevSigLen)
+	}
+	return c.Verify(r.Number, r.Sig, r.PrevSig)
 }
 
 func (u *Upstreams) start(chainHash string) int {
@@ -138,9 +170,9 @@ func (u *Upstreams) setStart(chainHash string, idx int) {
 	u.preferred[chainHash] = idx
 }
 
-// get requests round n from one upstream and decodes the answer.
-func (u *Upstreams) get(ctx context.Context, base string, c chain.Chain, n uint64) (chain.Round, error) {
-	url := base + "/" + c.ChainHash + "/public/" + strconv.FormatUint(n, 10)
+// get requests public/label from one upstream and decodes the answer. It does not verify the round.
+func (u *Upstreams) get(ctx context.Context, base string, c chain.Chain, label string) (chain.Round, error) {
+	url := base + "/" + c.ChainHash + "/public/" + label
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return chain.Round{}, fmt.Errorf("build request: %w", err)

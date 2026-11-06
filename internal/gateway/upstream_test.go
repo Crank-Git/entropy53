@@ -383,3 +383,156 @@ func TestCanceledContextStopsFailover(t *testing.T) {
 		t.Errorf("status = %v, hits = %d, want Unavailable, 0", status, first.hits.Load()+second.hits.Load())
 	}
 }
+
+// badSignature returns v with a changed last hexadecimal digit in the signature.
+func badSignature(v vector) vector {
+	last := v.Signature[len(v.Signature)-1]
+	repl := byte('0')
+	if last == '0' {
+		repl = '1'
+	}
+	v.Signature = v.Signature[:len(v.Signature)-1] + string(repl)
+	return v
+}
+
+func newLoggedUpstreams(urls []string, logs *logBuffer) *Upstreams {
+	return NewUpstreams(Config{Upstreams: urls, Log: slog.New(slog.NewJSONHandler(logs, nil))})
+}
+
+func TestBadSignatureKeepsNoRound(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	up := newFakeUpstream(t, serveRound(badSignature(v)))
+	u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+	_, status := u.fetchRound(context.Background(), chain.Quicknet, v.Round)
+
+	if _, ok := u.store.get("quicknet", v.Round); ok || status != Unavailable {
+		t.Errorf("stored = %v, status = %v, want false, Unavailable", ok, status)
+	}
+}
+
+func TestBadSignatureWritesOneLogLine(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	up := newFakeUpstream(t, serveRound(badSignature(v)))
+	var logs logBuffer
+	u := newLoggedUpstreams([]string{up.url()}, &logs)
+
+	u.fetchRound(context.Background(), chain.Quicknet, v.Round)
+
+	out := logs.String()
+	if strings.Count(out, "\n") != 1 || !strings.Contains(out, "round discarded") || strings.Contains(out, "upstream failed") {
+		t.Errorf("log = %q, want one round discarded line", out)
+	}
+}
+
+func TestWrongRoundNumberKeepsNoRound(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	up := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+	_, status := u.fetchRound(context.Background(), chain.Quicknet, v.Round-1)
+
+	_, storedWrong := u.store.get("quicknet", v.Round)
+	_, storedAsked := u.store.get("quicknet", v.Round-1)
+	if storedWrong || storedAsked || status != Unavailable {
+		t.Errorf("stored = %v, %v, status = %v, want false, false, Unavailable", storedWrong, storedAsked, status)
+	}
+}
+
+func TestWrongRoundNumberWritesOneLogLine(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	up := newFakeUpstream(t, serveRound(v))
+	var logs logBuffer
+	u := newLoggedUpstreams([]string{up.url()}, &logs)
+
+	u.fetchRound(context.Background(), chain.Quicknet, v.Round-1)
+
+	out := logs.String()
+	if strings.Count(out, "\n") != 1 || !strings.Contains(out, "round discarded") {
+		t.Errorf("log = %q, want one round discarded line", out)
+	}
+}
+
+func TestVerifiedRoundEntersStore(t *testing.T) {
+	for _, c := range []chain.Chain{chain.Default, chain.Quicknet} {
+		t.Run(c.BeaconID, func(t *testing.T) {
+			v := vectorOf(t, c.BeaconID)
+			up := newFakeUpstream(t, serveRound(v))
+			u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+			_, status := u.fetchRound(context.Background(), c, v.Round)
+
+			got, ok := u.store.get(c.BeaconID, v.Round)
+			if status != Found || !ok || hex.EncodeToString(got.Sig) != v.Signature {
+				t.Errorf("status = %v, stored = %v, want Found, true", status, ok)
+			}
+		})
+	}
+}
+
+func TestBadSignatureTriesNextUpstream(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	first := newFakeUpstream(t, serveRound(badSignature(v)))
+	second := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{first.url(), second.url()}})
+
+	_, status := u.fetchRound(context.Background(), chain.Quicknet, v.Round)
+
+	if _, ok := u.store.get("quicknet", v.Round); status != Found || !ok || second.hits.Load() != 1 {
+		t.Errorf("status = %v, stored = %v, second hits = %d, want Found, true, 1", status, ok, second.hits.Load())
+	}
+}
+
+func TestBadSignatureDoesNotMoveUpstreamOrder(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	first := newFakeUpstream(t, serveRound(badSignature(v)))
+	second := newFakeUpstream(t, serveRound(badSignature(v)))
+	u := NewUpstreams(Config{Upstreams: []string{first.url(), second.url()}})
+	u.setStart(chain.Quicknet.ChainHash, 1)
+
+	u.fetchRound(context.Background(), chain.Quicknet, v.Round)
+
+	if got := u.start(chain.Quicknet.ChainHash); got != 1 {
+		t.Errorf("start = %d, want 1", got)
+	}
+}
+
+func TestUnchainedRoundWithPreviousSignatureIsDiscarded(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	v.PreviousSignature = vectorOf(t, "default").PreviousSignature
+	up := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+	_, status := u.fetchRound(context.Background(), chain.Quicknet, v.Round)
+
+	if _, ok := u.store.get("quicknet", v.Round); ok || status != Unavailable {
+		t.Errorf("stored = %v, status = %v, want false, Unavailable", ok, status)
+	}
+}
+
+func TestFetchPathWithNoRequestedNumberKeepsVerifiedRound(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	up := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+	got, status := u.fetchPath(context.Background(), chain.Quicknet, "latest", 0)
+
+	_, ok := u.store.get("quicknet", v.Round)
+	want := "/" + chain.Quicknet.ChainHash + "/public/latest"
+	if status != Found || got.Number != v.Round || !ok || up.requestPaths()[0] != want {
+		t.Errorf("status = %v, round = %d, stored = %v, paths = %v", status, got.Number, ok, up.requestPaths())
+	}
+}
+
+func TestFetchPathRejectsRoundZeroInBody(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	v.Round = 0
+	up := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{up.url()}})
+
+	_, status := u.fetchPath(context.Background(), chain.Quicknet, "latest", 0)
+
+	if _, ok := u.store.get("quicknet", 0); ok || status != Unavailable {
+		t.Errorf("stored = %v, status = %v, want false, Unavailable", ok, status)
+	}
+}
