@@ -3,10 +3,6 @@ name: ci
 # GitHub Actions skips a run when the head commit message holds [skip ci].
 on:
   pull_request:
-    branches:
-      - dev
-      - "epic/**"
-      - "batch/**"
 
 permissions:
   contents: read
