@@ -32,6 +32,25 @@ type jsonVector struct {
 	Randomness        string   `json:"randomness"`
 }
 
+// field returns the value that a key sets, or nil for an unknown key. A txt key addresses the last string.
+func (v *vector) field(key string) *string {
+	switch key {
+	case "beacon_id":
+		return &v.BeaconID
+	case "round":
+		return &v.Round
+	case "signature":
+		return &v.Signature
+	case "previous_signature":
+		return &v.PreviousSignature
+	case "randomness":
+		return &v.Randomness
+	case "txt":
+		return &v.TXT[len(v.TXT)-1]
+	}
+	return nil
+}
+
 // parseAppendix returns the vectors of the appendix text.
 // A block opens with a "~~~ vector" line and closes with a "~~~" line. A key line starts at column 0.
 // A line that starts with white space continues the value above it, with no separator.
@@ -60,24 +79,13 @@ func parseAppendix(appendix string) ([]vector, error) {
 			if !ok {
 				return nil, fmt.Errorf("%s: no colon in %q", where, line)
 			}
-			value = strings.TrimSpace(value)
-			switch key {
-			case "beacon_id":
-				cur.BeaconID, last = value, &cur.BeaconID
-			case "round":
-				cur.Round, last = value, &cur.Round
-			case "signature":
-				cur.Signature, last = value, &cur.Signature
-			case "previous_signature":
-				cur.PreviousSignature, last = value, &cur.PreviousSignature
-			case "randomness":
-				cur.Randomness, last = value, &cur.Randomness
-			case "txt":
-				cur.TXT = append(cur.TXT, value)
-				last = &cur.TXT[len(cur.TXT)-1]
-			default:
+			if key == "txt" {
+				cur.TXT = append(cur.TXT, "")
+			}
+			if last = cur.field(key); last == nil {
 				return nil, fmt.Errorf("%s: unknown key %q", where, key)
 			}
+			*last = strings.TrimSpace(value)
 		}
 	}
 	if cur != nil {
