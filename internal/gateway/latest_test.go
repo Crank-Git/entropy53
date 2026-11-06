@@ -171,7 +171,7 @@ func TestDefaultLatestAnswerIs324BytesFor42ByteQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() { _ = conn.Close() })
 	if err := conn.SetDeadline(time.Now().Add(dnsWait)); err != nil {
 		t.Fatalf("SetDeadline: %v", err)
 	}
