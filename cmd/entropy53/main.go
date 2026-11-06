@@ -28,7 +28,7 @@ func runWith(args []string, out, errOut io.Writer, now func() time.Time) int {
 	fs := flag.NewFlagSet("entropy53", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	fs.Usage = func() {
-		_, _ = fmt.Fprint(errOut, "Usage of entropy53:\n  entropy53 [--version] <command> [arguments]\n\nCommands:\n  chains    print the chains in the registry\n  round-at  print the first round at or after a time\n\n")
+		_, _ = fmt.Fprint(errOut, "Usage of entropy53:\n  entropy53 [--version] <command> [arguments]\n\nCommands:\n  chains    print the chains in the registry\n  round-at  print the first round at or after a time\n  get       print a verified round\n  latest    print the verified latest round\n\n")
 		fs.PrintDefaults()
 	}
 	showVersion := fs.Bool("version", false, "print the build version and exit")

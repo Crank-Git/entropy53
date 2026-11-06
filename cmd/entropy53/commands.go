@@ -61,6 +61,10 @@ func dispatch(cmd string, args []string, out, errOut io.Writer, now func() time.
 		return chains(args, out, errOut)
 	case "round-at":
 		return roundAt(args, out, errOut, now)
+	case "get":
+		return getCmd(args, out, errOut, now)
+	case "latest":
+		return latestCmd(args, out, errOut, now)
 	default:
 		writeError(errOut, fmt.Sprintf("unknown command %q.", cmd))
 		return usageExit

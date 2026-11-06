@@ -386,7 +386,7 @@ A change is done when:
 - **Goal:** A draw organizer pins a round and later verifies the round.
 - **Covers:** [04-client-library](features/04-client-library.md), [05-cli](features/05-cli.md).
 - **Depends on:** Epic 3.
-- **Exit criteria:** `entropy53 get quicknet 1000` prints verified randomness that equals the upstream value.
+- **Exit criteria:** `entropy53 get quicknet 1000 --zone <zone>` prints verified randomness that equals the upstream value.
 
 ### Epic 5: Interop and release
 

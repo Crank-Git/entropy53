@@ -2,7 +2,7 @@
 id: cli
 feature: CLI
 epic: "Epic 4: Client and CLI"
-status: issued
+status: built
 issues: [30, 31]
 mockups: []
 ---
@@ -131,7 +131,7 @@ The CLI reads the registry. The CLI writes no file.
 
 ## Interfaces
 
-The CLI uses only the public packages `chain` and `client`. It has no external interface of its own.
+The CLI uses the public packages `chain` and `client`, and `internal/version`. It has no external interface of its own.
 
 ## Edge cases & failures
 
