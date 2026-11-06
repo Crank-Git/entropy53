@@ -660,6 +660,10 @@ docs/operator-guide.md operator guide</code></pre>
 </li>
 <li>2026-11-06: <code>scripts/refreshvectors</code> reads the upstream <code>randomness</code> value as expected test data. This is the one exception to the rule that no code reads <code>randomness</code> from an upstream.
 </li>
+<li>2026-11-06: A follower that receives a verified round below the target round moves the preferred upstream to the next upstream. So an upstream stuck on an older round causes no outage.
+</li>
+<li>2026-11-06: Only a follower writes the latest round. An on-demand fetch does not change it.
+</li>
 </ul><nav class="pager">
 <span></span>
 <a href="html/page-threat-model.html">Threat model &rarr;</a>

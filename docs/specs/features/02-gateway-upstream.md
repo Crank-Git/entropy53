@@ -2,7 +2,7 @@
 id: gateway-upstream
 feature: Gateway upstream and store
 epic: "Epic 2: Gateway upstream"
-status: issued
+status: built
 issues: [17, 18, 19, 20]
 mockups: []
 ---
@@ -38,8 +38,9 @@ This feature set gives the gateway verified rounds. A follower keeps the current
 - FR-upstream-17 — A follower starts a fetch 250 milliseconds after each round time.
 - FR-upstream-18 — A follower retries once, 500 milliseconds later, if a fetch returns an older round.
 - FR-upstream-19 — A follower that remains behind writes one log line when it becomes behind, and one when it recovers.
-- FR-upstream-20 — The gateway records the highest verified round of each chain as the latest round of that chain.
+- FR-upstream-20 — The gateway records the highest round that a follower verified for each chain as the latest round of that chain.
 - FR-upstream-21 — The latest round of a chain never moves to a lower round number.
+- FR-upstream-22 — A follower that receives a verified round below the target round moves the preferred upstream to the next upstream.
 
 ## User flows
 
@@ -95,7 +96,7 @@ stateDiagram-v2
 
 1. Wait until the next round time plus 250 milliseconds.
 2. Fetch the latest round.
-3. If the round is older than the current round, retry once after 500 milliseconds.
+3. If the round is older than the current round, move the preferred upstream to the next upstream. Then retry once after 500 milliseconds.
 4. If the retry fails, enter the behind state and write one log line.
 5. In the behind state, continue at the next round time.
 6. After the first success, write one log line and leave the behind state.
