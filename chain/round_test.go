@@ -1,6 +1,8 @@
 package chain
 
 import (
+	"errors"
+	"math"
 	"testing"
 	"time"
 )
@@ -140,5 +142,17 @@ func TestRoundAfterQuicknetDrawTime(t *testing.T) {
 	got, err := Quicknet.RoundAfter(at)
 	if err != nil || got != 34448212 {
 		t.Fatalf("RoundAfter(%v) = %d, %v; want 34448212", at, got, err)
+	}
+}
+
+func TestMinimumTimeIsBeforeGenesis(t *testing.T) {
+	min := time.Unix(math.MinInt64, 0)
+	for _, c := range allChains {
+		if _, err := c.RoundAt(min); !errors.Is(err, errBeforeGenesis) {
+			t.Errorf("%s: RoundAt error = %v, want before genesis", c.BeaconID, err)
+		}
+		if _, err := c.RoundAfter(min); !errors.Is(err, errBeforeGenesis) {
+			t.Errorf("%s: RoundAfter error = %v, want before genesis", c.BeaconID, err)
+		}
 	}
 }

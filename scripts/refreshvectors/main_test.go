@@ -161,3 +161,18 @@ func TestRefreshRejectsAnotherRoundNumber(t *testing.T) {
 		t.Fatal("run wrote a file after a wrong round number")
 	}
 }
+
+func TestRefreshWritesReadableFile(t *testing.T) {
+	srv := upstream(t, nil)
+	out := filepath.Join(t.TempDir(), "vectors.json")
+	if err := run(srv.URL, out); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	info, err := os.Stat(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Errorf("mode = %o, want 644", got)
+	}
+}

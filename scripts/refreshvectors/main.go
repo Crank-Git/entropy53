@@ -1,7 +1,7 @@
 // Command refreshvectors rewrites testdata/vectors.json from a real upstream.
 //
 // It is the only program that reads randomness from an upstream. The value is
-// test data from an independent source: no verification path uses it.
+// test data: no verification path uses it.
 package main
 
 import (
@@ -140,6 +140,10 @@ func writeAtomic(path string, data []byte) error {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// CreateTemp gives mode 0600, and the rename keeps it.
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)

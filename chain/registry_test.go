@@ -61,3 +61,19 @@ func TestLookupRejectsUnknownBeaconID(t *testing.T) {
 		}
 	}
 }
+
+func TestLookupReturnsAnOwnCopyOfThePublicKey(t *testing.T) {
+	got, err := Lookup("quicknet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := got.PublicKey[0]
+	got.PublicKey[0] ^= 0xff
+	again, err := Lookup("quicknet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.PublicKey[0] != want {
+		t.Fatal("a change to a returned key changed the registry")
+	}
+}

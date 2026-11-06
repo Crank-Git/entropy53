@@ -1,6 +1,9 @@
 package chain
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // MaxRound is the highest valid round number, 2^53.
 // Larger numbers lose precision in the JSON numbers of some clients.
@@ -18,7 +21,7 @@ type Chain struct {
 	PrevSigLen int
 }
 
-// Round is one beacon of a chain.
+// Round is one round of a chain.
 type Round struct {
 	Number  uint64
 	Sig     []byte
@@ -82,10 +85,12 @@ var Evmnet = Chain{
 }
 
 // Lookup returns the Chain for a known beacon ID.
+// The PublicKey of the result is a copy, so a caller cannot change the registry.
 // It returns an error for an unknown beacon ID.
 func Lookup(beaconID string) (Chain, error) {
 	for _, c := range []Chain{Quicknet, Default, Evmnet} {
 		if c.BeaconID == beaconID {
+			c.PublicKey = bytes.Clone(c.PublicKey)
 			return c, nil
 		}
 	}

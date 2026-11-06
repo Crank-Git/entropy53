@@ -269,7 +269,7 @@ func TestVerifyRejectsChangedPrevSigOnChainedChain(t *testing.T) {
 	}
 }
 
-func TestVerifyRejectsAnotherChainKey(t *testing.T) {
+func TestVerifyRejectsVectorOfAnotherChain(t *testing.T) {
 	_, vs := vectorsOf(t, "quicknet")
 	for _, other := range []chain.Chain{chain.Default, chain.Evmnet} {
 		for _, v := range vs {

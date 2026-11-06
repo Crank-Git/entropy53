@@ -21,20 +21,22 @@ func (c Chain) RoundTime(n uint64) time.Time {
 // It returns an error if t is before genesis or the round is above MaxRound.
 // Use RoundAfter to pin a round. RoundAt returns a round that already exists.
 func (c Chain) RoundAt(t time.Time) (uint64, error) {
-	elapsed := t.Unix() - c.Genesis
-	if elapsed < 0 {
+	// Compare before subtracting: the difference wraps for a time near math.MinInt64.
+	if t.Unix() < c.Genesis {
 		return 0, errBeforeGenesis
 	}
+	elapsed := t.Unix() - c.Genesis
 	return checkRound(uint64(elapsed/c.Period) + 1)
 }
 
 // RoundAfter returns the lowest round with a round time at or after t.
 // It returns an error if t is before genesis or the round is above MaxRound.
 func (c Chain) RoundAfter(t time.Time) (uint64, error) {
-	elapsed := t.Unix() - c.Genesis
-	if elapsed < 0 {
+	// Compare before subtracting: the difference wraps for a time near math.MinInt64.
+	if t.Unix() < c.Genesis {
 		return 0, errBeforeGenesis
 	}
+	elapsed := t.Unix() - c.Genesis
 	periods := uint64(elapsed / c.Period)
 	// A part period, or a part second, rounds up to the next round.
 	if elapsed%c.Period != 0 || t.Nanosecond() != 0 {
