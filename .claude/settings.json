@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go run:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod download)",
+      "Bash(gofmt:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(make refresh-vectors)",
+      "Bash(dig:*)",
+      "Bash(docker compose:*)",
+      "Bash(kdrfc:*)",
+      "Bash(kramdown-rfc:*)",
+      "Bash(xml2rfc:*)",
+      "Bash(python3 docs/specs/render-spec.py)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v gofmt >/dev/null || exit 0; case \"$CLAUDE_FILE_PATHS\" in *.go) gofmt -w \"$CLAUDE_FILE_PATHS\";; esac"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+# Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+.claude/agent-memory-local/
+CLAUDE.local.md
+.claude.local.md
+.issue-flow.local.json
+
+# Go build output
+/entropy53
+/entropy53d
+/dist/
+*.test
+coverage.out
+
+# Draft build output
+/draft/*.xml
+/draft/*.txt
+/draft/*.html
+
+# OS and editor
+.DS_Store
+.idea/
+.vscode/

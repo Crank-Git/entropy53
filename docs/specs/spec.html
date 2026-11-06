@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>entropy53</title>
+<style>
+:root { --bg:#ffffff; --fg:#1a1a24; --muted:#5a5a68; --line:#e3e3ea; --accent:#3452c8;
+        --card:#f6f6f9; --warn-bg:#fff7e8; --warn-line:#e8b34a; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#14141b; --fg:#e8e8ee; --muted:#9a9aa8; --line:#2c2c38; --accent:#8ea6ff;
+          --card:#1c1c26; --warn-bg:#2a2318; --warn-line:#a87c2a; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+       font:16px/1.6 system-ui,-apple-system,sans-serif; }
+.layout { display:flex; min-height:100vh; }
+aside.site { width:17rem; flex:none; border-right:1px solid var(--line);
+             padding:1.2rem 1rem 3rem; position:sticky; top:0; height:100vh;
+             overflow-y:auto; background:var(--card); }
+aside.site h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;
+                color:var(--muted); margin:1.2rem 0 .3rem; border:none; padding:0; }
+aside.site ul { list-style:none; margin:0; padding:0; }
+aside.site li { margin:.15rem 0; }
+aside.site a { text-decoration:none; color:var(--fg); font-size:.92rem;
+               display:block; padding:.15rem .5rem; border-radius:6px; }
+aside.site a:hover { background:var(--bg); }
+aside.site a.current { background:var(--accent); color:#fff; }
+aside.site a.sub { padding-left:1.3rem; font-size:.84rem; color:var(--muted); }
+aside.site .brand { font-weight:700; font-size:1.05rem; }
+main { max-width:60rem; margin:0 auto; padding:2rem 1.5rem 6rem; min-width:0; flex:1; }
+h1,h2,h3,h4 { line-height:1.25; }
+h1 { font-size:2rem; margin:.2rem 0; }
+h2 { border-bottom:1px solid var(--line); padding-bottom:.3rem; margin-top:2.5rem; }
+a { color:var(--accent); }
+code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
+pre.code { background:var(--card); border:1px solid var(--line); border-radius:8px;
+           padding:1rem; overflow-x:auto; }
+pre.code code { background:none; padding:0; }
+.table-wrap { overflow-x:auto; }
+table { border-collapse:collapse; margin:1rem 0; min-width:50%; }
+th,td { border:1px solid var(--line); padding:.4rem .7rem; text-align:left; }
+th { background:var(--card); }
+blockquote { border-left:3px solid var(--accent); margin:1rem 0; padding:.2rem 1rem;
+             color:var(--muted); }
+.meta { color:var(--muted); margin-bottom:2rem; }
+.badge { display:inline-block; padding:.1rem .6rem; border-radius:999px;
+         border:1px solid var(--accent); color:var(--accent); font-size:.85rem; }
+.diagram { background:var(--card); border:1px solid var(--line); border-radius:8px;
+           padding:1rem; margin:1rem 0; overflow-x:auto; }
+.diagram pre.mermaid { margin:0; }
+.diagram.raw::before { content:"diagram source (assets/mermaid.min.js not vendored)";
+                       display:block; color:var(--muted); font-size:.8rem;
+                       margin-bottom:.5rem; }
+.callout-h, .callout-h ~ p, .callout-h ~ ul { background:var(--warn-bg); }
+.callout-h { border-left:4px solid var(--warn-line); padding:.3rem .8rem; }
+.mockup { margin:1.5rem 0; }
+.mockup iframe { width:100%; height:32rem; border:1px solid var(--line);
+                 border-radius:8px; background:#fff; }
+nav.pager { display:flex; justify-content:space-between; margin-top:3rem;
+            border-top:1px solid var(--line); padding-top:1rem; }
+@media (max-width: 900px) {
+  .layout { display:block; }
+  aside.site { width:auto; height:auto; position:static; border-right:none;
+               border-bottom:1px solid var(--line); }
+}
+h1[id]:hover .rv-add, h2[id]:hover .rv-add, h3[id]:hover .rv-add,
+h4[id]:hover .rv-add { opacity:1; }
+.rv-add { opacity:0; margin-left:.5rem; font-size:.75rem; cursor:pointer;
+          border:1px solid var(--accent); color:var(--accent); background:none;
+          border-radius:6px; padding:0 .45rem; vertical-align:middle;
+          transition:opacity .15s; }
+.rv-comment { border:1px solid var(--warn-line); border-left-width:4px;
+              background:var(--warn-bg); border-radius:8px; padding:.6rem .9rem;
+              margin:.8rem 0; font-size:.92rem; }
+.rv-comment.rv-resolved { opacity:.6; border-left-color:var(--line); }
+.rv-comment .rv-head { display:flex; gap:.6rem; align-items:center;
+                       color:var(--muted); font-size:.8rem; margin-bottom:.3rem; }
+.rv-comment .rv-head button { font-size:.75rem; cursor:pointer; background:none;
+                              border:1px solid var(--line); border-radius:6px;
+                              color:var(--muted); padding:0 .4rem; }
+.rv-comment .rv-body { white-space:pre-wrap; }
+.rv-editor textarea { width:100%; min-height:5rem; background:var(--bg);
+                      color:var(--fg); border:1px solid var(--line);
+                      border-radius:6px; padding:.5rem; font:inherit; }
+.rv-editor .rv-actions { margin-top:.4rem; display:flex; gap:.5rem; }
+.rv-editor button { cursor:pointer; border-radius:6px; padding:.2rem .8rem;
+                    border:1px solid var(--accent); background:var(--accent);
+                    color:#fff; }
+.rv-editor button.rv-cancel { background:none; color:var(--accent); }
+#rv-toggle { position:fixed; right:1rem; bottom:1rem; z-index:60;
+             background:var(--accent); color:#fff; border:none; cursor:pointer;
+             border-radius:999px; padding:.5rem 1rem; font-size:.85rem;
+             box-shadow:0 2px 10px rgba(0,0,0,.2); }
+#rv-drawer { position:fixed; top:0; right:0; bottom:0; width:21rem; z-index:55;
+             background:var(--card); border-left:1px solid var(--line);
+             display:flex; flex-direction:column; transform:translateX(100%);
+             transition:transform .2s ease; box-shadow:-4px 0 16px rgba(0,0,0,.12); }
+body.rv-open #rv-drawer { transform:none; }
+body.rv-open .layout { padding-right:21rem; }
+#rv-drawer header { padding:.8rem 1rem .5rem; border-bottom:1px solid var(--line); }
+#rv-drawer header .rv-count { color:var(--muted); font-size:.8rem; }
+#rv-drawer .rv-compose { padding:.8rem 1rem; border-bottom:1px solid var(--line); }
+#rv-drawer .rv-compose label { display:block; font-size:.75rem;
+                               color:var(--muted); margin-bottom:.25rem; }
+#rv-drawer .rv-compose select { width:100%; margin-bottom:.4rem;
+             background:var(--bg); color:var(--fg); border:1px solid var(--line);
+             border-radius:6px; padding:.3rem; font:inherit; font-size:.85rem; }
+#rv-drawer .rv-compose textarea { width:100%; min-height:5.5rem;
+             background:var(--bg); color:var(--fg); border:1px solid var(--line);
+             border-radius:6px; padding:.5rem; font:inherit; font-size:.9rem; }
+#rv-drawer .rv-compose .rv-live { font-size:.72rem; color:var(--muted); }
+#rv-drawer .rv-list { flex:1; overflow-y:auto; padding:.6rem 1rem; }
+#rv-drawer .rv-item { border:1px solid var(--line); border-left:3px solid
+             var(--warn-line); border-radius:8px; padding:.45rem .6rem;
+             margin-bottom:.6rem; font-size:.82rem; cursor:pointer; }
+#rv-drawer .rv-item.rv-resolved { opacity:.55; border-left-color:var(--line); }
+#rv-drawer .rv-item .rv-where { color:var(--accent); font-size:.72rem; }
+#rv-drawer .rv-item .rv-meta { color:var(--muted); font-size:.72rem;
+                               display:flex; gap:.5rem; align-items:center; }
+#rv-drawer .rv-item .rv-meta button { font-size:.7rem; cursor:pointer;
+             background:none; border:1px solid var(--line); border-radius:5px;
+             color:var(--muted); padding:0 .35rem; }
+#rv-drawer .rv-item .rv-text { white-space:pre-wrap; margin:.15rem 0; }
+#rv-drawer footer { padding:.6rem 1rem; border-top:1px solid var(--line);
+                    display:flex; gap:.5rem; flex-wrap:wrap; }
+#rv-drawer footer button, #rv-drawer .rv-compose button {
+  cursor:pointer; border:1px solid var(--accent); background:none;
+  color:var(--accent); border-radius:6px; padding:.2rem .7rem; font-size:.8rem; }
+#rv-drawer .rv-compose button.rv-primary { background:var(--accent); color:#fff; }
+#rv-drawer .rv-otherpages { color:var(--muted); font-size:.75rem;
+                            margin:.4rem 0 0; }
+@media (max-width: 1200px) { body.rv-open .layout { padding-right:0; } }
+</style>
+</head>
+<body data-page="index" data-rvkey="entropy53">
+<div class="layout">
+<aside class="site"><a class="brand" href="spec.html">entropy53</a>
+<h2>Spec</h2><ul>
+<li><a class="current" href="spec.html">Overview &amp; index</a></li>
+<li><a class="sub" href="#overview">Overview</a></li>
+<li><a class="sub" href="#terms">Terms</a></li>
+<li><a class="sub" href="#goals">Goals</a></li>
+<li><a class="sub" href="#non-goals">Non-goals</a></li>
+<li><a class="sub" href="#users-personas">Users &amp; personas</a></li>
+<li><a class="sub" href="#feature-map">Feature map</a></li>
+<li><a class="sub" href="#architecture-stack">Architecture &amp; stack</a></li>
+<li><a class="sub" href="#data-model">Data model</a></li>
+<li><a class="sub" href="#cross-cutting-concerns">Cross-cutting concerns</a></li>
+<li><a class="sub" href="#environments-config">Environments &amp; config</a></li>
+<li><a class="sub" href="#testing-strategy">Testing strategy</a></li>
+<li><a class="sub" href="#epics">Epics</a></li>
+<li><a class="sub" href="#milestones">Milestones</a></li>
+<li><a class="sub" href="#assumptions">Assumptions</a></li>
+<li><a class="sub" href="#risks-open-questions">Risks &amp; open questions</a></li>
+<li><a class="sub" href="#changelog">Changelog</a></li>
+</ul>
+<h2>Pages</h2><ul>
+<li><a href="html/page-threat-model.html">Threat model</a></li>
+<li><a href="html/page-evidence.html">Evidence and sources</a></li>
+</ul>
+<h2>Features</h2><ul>
+<li><a href="html/feature-foundation.html">Foundation</a></li>
+<li><a href="html/feature-record-format.html">Record format and registry</a></li>
+<li><a href="html/feature-gateway-upstream.html">Gateway upstream and store</a></li>
+<li><a href="html/feature-gateway-answers.html">Gateway answers</a></li>
+<li><a href="html/feature-client-library.html">Client library</a></li>
+<li><a href="html/feature-cli.html">CLI</a></li>
+<li><a href="html/feature-resolver-interop.html">Resolver interop and release</a></li>
+<li><a href="html/feature-internet-draft.html">Internet-Draft</a></li>
+</ul></aside>
+<main>
+<p class="meta"><span class="badge">approved</span> &nbsp; created 2026-11-06 &nbsp; rendered 2026-11-06</p>
+<h1>entropy53</h1>
+<h1 id="entropy53">entropy53</h1>
+<h2 id="overview">Overview</h2>
+<p>entropy53 serves drand rounds over DNS. An operator runs a gateway on a delegated zone. A client reads a TXT record, then verifies the BLS signature against a public key that the client already holds. The gateway is therefore not trusted. The gateway can withhold or delay a round, but the gateway cannot forge a round.</p>
+<p>The main use is a pinned round. A person announces a future round number for a lottery or a draw. Everybody reads that round later. The value of a published round never changes and verifies itself, so a resolver cache can only help. The <code>latest</code> name exists for convenience. It adds no cryptographic property.</p>
+<p>The need comes from a gap. drand distributes rounds over HTTP and libp2p, and no public gRPC API remains. The brief for this project states the gap in these words:</p>
+<blockquote>"Whitespace: real. drand distributes only over HTTP/gRPC/libp2p; Cloudflare’s node is HTTPS+CDN. No one serves a beacon over DNS."</blockquote>
+<blockquote>"Lead with pin-a-round; frame “latest” as ergonomics, not a crypto upgrade."</blockquote>
+<p>Version 1 is a self-hosted reference implementation. Version 1 also includes an Internet-Draft, so that other people can implement the format independently.</p>
+<h2 id="terms">Terms</h2>
+<div class="table-wrap"><table>
+<tr><th>Term</th><th>Part of speech</th><th>Meaning in this project</th><th>Do not use</th></tr>
+<tr><td>project</td><td>noun</td><td>The whole of entropy53: gateway, client library, CLI and Internet-Draft.</td><td>product, system</td></tr>
+<tr><td>chain</td><td>noun</td><td>One drand network with its own public key, period and scheme. Version 1 has <code>quicknet</code>, <code>default</code> and <code>evmnet</code>.</td><td>beacon network, drand network</td></tr>
+<tr><td>beacon ID</td><td>noun</td><td>The short drand name of a chain, for example <code>quicknet</code>.</td><td>chain name</td></tr>
+<tr><td>chain hash</td><td>noun</td><td>The 64-character hexadecimal drand identifier of a chain.</td><td>chain ID</td></tr>
+<tr><td>registry</td><td>noun</td><td>The list of chains and their fixed parameters, compiled into the project.</td><td>config, chain list</td></tr>
+<tr><td>round</td><td>noun</td><td>One numbered output of a chain.</td><td>beacon, tick, value</td></tr>
+<tr><td>round number</td><td>noun</td><td>The integer that identifies a round.</td><td>height, index</td></tr>
+<tr><td>round time</td><td>noun</td><td>The time at which a chain produces a round: <code>genesis + (n-1) * period</code>.</td><td>due time</td></tr>
+<tr><td>current round</td><td>noun</td><td>The highest round number with a round time at or before the clock time: <code>floor((now-genesis)/period)+1</code>.</td><td>newest round</td></tr>
+<tr><td>publish</td><td>verb</td><td>For a chain, to make a round available. Only a chain publishes.</td><td>emit, release</td></tr>
+<tr><td>pin</td><td>verb</td><td>To select a future round number before its round time.</td><td>commit, reserve</td></tr>
+<tr><td>draw</td><td>noun</td><td>An event that takes its outcome from a pinned round.</td><td>lottery, raffle</td></tr>
+<tr><td>signature</td><td>noun</td><td>The BLS signature of a round.</td><td>proof</td></tr>
+<tr><td>randomness</td><td>noun</td><td>The 32-byte value <code>sha256(signature)</code>. A client always computes this value.</td><td>entropy, random value</td></tr>
+<tr><td>verify</td><td>verb</td><td>To check a round against the public key from the registry.</td><td>validate, authenticate</td></tr>
+<tr><td>gateway</td><td>noun</td><td>The authoritative DNS server that this project builds, binary <code>entropy53d</code>.</td><td>server, node, relay</td></tr>
+<tr><td>operator</td><td>noun</td><td>A person who runs a gateway.</td><td>admin, host</td></tr>
+<tr><td>zone</td><td>noun</td><td>The DNS domain that a parent delegates to a gateway, for example <code>beacon.example</code>.</td><td>domain</td></tr>
+<tr><td>upstream</td><td>noun</td><td>A public drand HTTP relay from which the gateway fetches rounds.</td><td>origin, backend, source</td></tr>
+<tr><td>fetch</td><td>verb</td><td>For a gateway, to get a round from an upstream over HTTP.</td><td>pull, download</td></tr>
+<tr><td>store</td><td>noun</td><td>The bounded in-memory map of verified rounds in a gateway.</td><td>cache, database</td></tr>
+<tr><td>follower</td><td>noun</td><td>The gateway task that fetches the current round of one chain, once per period.</td><td>poller, watcher</td></tr>
+<tr><td>client library</td><td>noun</td><td>The Go package that integrators import, path <code>client</code>.</td><td>SDK</td></tr>
+<tr><td>CLI</td><td>noun</td><td>The command-line tool that this project builds, binary <code>entropy53</code>.</td><td>tool, command</td></tr>
+<tr><td>integrator</td><td>noun</td><td>A developer who uses the client library in an application.</td><td>consumer</td></tr>
+<tr><td>resolver</td><td>noun</td><td>Recursive DNS software between a client and a gateway.</td><td>recursor, DNS server</td></tr>
+<tr><td>resolver cache</td><td>noun</td><td>The answers that a resolver keeps until their TTL ends.</td><td>DNS cache</td></tr>
+<tr><td>answer</td><td>noun</td><td>One DNS response from the gateway.</td><td>reply, response</td></tr>
+<tr><td>round name</td><td>noun</td><td>The DNS name <code>round.&lt;n&gt;.&lt;chain&gt;.&lt;zone&gt;</code>.</td><td>query name</td></tr>
+<tr><td>latest name</td><td>noun</td><td>The DNS name <code>latest.&lt;chain&gt;.&lt;zone&gt;</code>.</td><td>head name</td></tr>
+<tr><td>round record</td><td>noun</td><td>The single TXT resource record at a round name or a latest name.</td><td>payload, entry</td></tr>
+<tr><td>record body</td><td>noun</td><td>The bytes inside the base64 text of a round record.</td><td>blob</td></tr>
+<tr><td>negative answer</td><td>noun</td><td>An answer with no record: either NODATA or NXDOMAIN.</td><td>empty reply</td></tr>
+<tr><td>NODATA</td><td>noun</td><td>RCODE NOERROR, no answer record, an SOA in the authority section (RFC 2308).</td><td>empty answer</td></tr>
+<tr><td>NXDOMAIN</td><td>noun</td><td>RCODE 3: the name does not exist (RFC 2308).</td><td>not found</td></tr>
+<tr><td>empty non-terminal</td><td>noun</td><td>A name with no record but with names below it, for example <code>&lt;n&gt;.&lt;chain&gt;.&lt;zone&gt;</code>.</td><td>ENT</td></tr>
+<tr><td>withhold</td><td>verb</td><td>To return no round after its round time and the grace time.</td><td>block, censor</td></tr>
+<tr><td>grace time</td><td>noun</td><td>The time after a round time before a missing round counts as withheld.</td><td>delay</td></tr>
+<tr><td>stale</td><td>adjective</td><td>Describes a <code>latest</code> result that is more than two rounds older than the current round.</td><td>old, lagging</td></tr>
+<tr><td>vector</td><td>noun</td><td>One real round with its expected record body, stored in <code>testdata/vectors.json</code>.</td><td>fixture, sample</td></tr>
+<tr><td>interop test</td><td>noun</td><td>A test that sends queries through real resolver software to a gateway.</td><td>E2E</td></tr>
+<tr><td>TTL</td><td>noun</td><td>Time to live: the seconds that a resolver can keep an answer.</td><td>expiry</td></tr>
+</table></div>
+<h2 id="goals">Goals</h2>
+<ol>
+<li>A client reads and verifies any published round of all three chains through an unmodified resolver.
+</li>
+<li>A gateway never returns a round that it has not verified.
+</li>
+<li>A client that polls a pinned round early receives that round within 5 seconds after its round time, through a resolver with default settings. An early query never extends this delay, because each negative answer ends at or before the round time, rounded up to one whole second.
+</li>
+<li>A second query for a published round through a resolver sends no query to the gateway.
+</li>
+<li>An independent implementer can produce a compatible gateway or client from the Internet-Draft alone.
+</li>
+<li>A fresh operator delegates a zone and answers a first query in 30 minutes or less, with the operator guide.
+</li>
+</ol>
+<h2 id="non-goals">Non-goals</h2>
+<ul>
+<li>A public gateway run by this project. Version 1 has no demo service and no uptime commitment.
+</li>
+<li>A fallback to HTTP or any other transport in the client library. The caller decides what to do with an error.
+</li>
+<li>DNSSEC signatures. The BLS signature gives integrity. See <a href="html/page-threat-model.html">the threat model</a> for what remains.
+</li>
+<li>A <code>latest</code> result that is safe for a draw. A gateway can select among recent rounds, so a draw uses a pinned round.
+</li>
+<li>Delivery of chain parameters over DNS. A client must already hold the public key.
+</li>
+<li>Client libraries in other languages. The Internet-Draft enables them.
+</li>
+<li>Prometheus metrics, a dashboard or a persistent database.
+</li>
+<li>Submission of the Internet-Draft to the IETF. That decision stays with the maintainer.
+</li>
+</ul>
+<h2 id="users-personas">Users &amp; personas</h2>
+<div class="table-wrap"><table>
+<tr><th>Persona</th><th>Needs</th><th>Allowed to do</th></tr>
+<tr><td>Operator</td><td>Delegates a zone, runs one binary, reads logs.</td><td>Sets gateway flags. Cannot change a round.</td></tr>
+<tr><td>Integrator</td><td>Imports the client library and receives a verified round or a typed error.</td><td>Selects a chain, a zone and a resolver.</td></tr>
+<tr><td>Draw organizer</td><td>Converts a draw time to a round number, announces the number, later reads the round.</td><td>Uses the CLI only.</td></tr>
+<tr><td>Independent implementer</td><td>Reads the Internet-Draft and the vectors.</td><td>Builds a compatible implementation.</td></tr>
+</table></div>
+<p>No persona has an account. The project has no authentication because each round verifies itself.</p>
+<h2 id="feature-map">Feature map</h2>
+<div class="table-wrap"><table>
+<tr><th>Feature set</th><th>Spec file</th><th>Epic</th><th>Mockups</th></tr>
+<tr><td>Foundation</td><td><a href="html/feature-foundation.html">00-foundation</a></td><td>Epic 0: Foundation</td><td>none</td></tr>
+<tr><td>Record format and registry</td><td><a href="html/feature-record-format.html">01-record-format</a></td><td>Epic 1: Record format</td><td>none</td></tr>
+<tr><td>Gateway upstream and store</td><td><a href="html/feature-gateway-upstream.html">02-gateway-upstream</a></td><td>Epic 2: Gateway upstream</td><td>none</td></tr>
+<tr><td>Gateway answers</td><td><a href="html/feature-gateway-answers.html">03-gateway-answers</a></td><td>Epic 3: Gateway answers</td><td>none</td></tr>
+<tr><td>Client library</td><td><a href="html/feature-client-library.html">04-client-library</a></td><td>Epic 4: Client and CLI</td><td>none</td></tr>
+<tr><td>CLI</td><td><a href="html/feature-cli.html">05-cli</a></td><td>Epic 4: Client and CLI</td><td>none</td></tr>
+<tr><td>Resolver interop and release</td><td><a href="html/feature-resolver-interop.html">06-resolver-interop</a></td><td>Epic 5: Interop and release</td><td>none</td></tr>
+<tr><td>Internet-Draft</td><td><a href="html/feature-internet-draft.html">07-internet-draft</a></td><td>Epic 6: Internet-Draft</td><td>none</td></tr>
+</table></div>
+<p>The project has no graphical screen, so the spec has no HTML mockup. The CLI feature file shows the exact terminal output instead.</p>
+<h2 id="architecture-stack">Architecture &amp; stack</h2>
+<div class="diagram"><pre class="mermaid">flowchart LR
+  subgraph drand[drand]
+    U1[upstream api.drand.sh]
+    U2[upstream drand.cloudflare.com]
+  end
+  subgraph GW[gateway entropy53d]
+    F[follower]
+    M[on-demand fetch]
+    V[verify]
+    S[(store)]
+    A[answer logic]
+  end
+  R[resolver and resolver cache]
+  C[client library]
+  CLI[CLI entropy53]
+  REG[registry public keys]
+  U1 --&gt; F
+  U2 --&gt; F
+  U1 --&gt; M
+  U2 --&gt; M
+  F --&gt; V
+  M --&gt; V
+  V --&gt; S
+  S --&gt; A
+  A --&gt;|TXT or negative answer| R
+  R --&gt; C
+  CLI --&gt; C
+  REG --&gt; V
+  REG --&gt; C
+  C --&gt;|verify| REG</pre></div>
+<p>The gateway and the client library verify rounds independently. The client library never trusts the gateway verification.</p>
+<h3 id="components">Components</h3>
+<div class="table-wrap"><table>
+<tr><th>Component</th><th>Path</th><th>Role</th><th>Why this choice beat the alternative</th></tr>
+<tr><td>Language</td><td>Go 1.27</td><td>All code.</td><td>drand itself uses Go. The user chose Go over Rust, where the drand blog reports RFC 9380 faults in some third-party verifiers.</td></tr>
+<tr><td>Registry and record format</td><td><code>chain/</code>, <code>record/</code></td><td>Public packages.</td><td>The gateway and the client library share one definition of the format.</td></tr>
+<tr><td>BLS verification</td><td><code>github.com/drand/drand/v2/crypto</code> v2.1.8</td><td>Verifies all three schemes.</td><td>A spike on 2026-11-06 verified real round 1000 on all three chains. Own cryptography is not acceptable.</td></tr>
+<tr><td>DNS</td><td><code>github.com/miekg/dns</code> v1.1.73</td><td>Gateway listeners and client queries.</td><td>The successor <code>codeberg.org/miekg/dns</code> is at v0.6.x with no stable API. See <a href="../adr/0002-dns-library.md">ADR 0002</a>.</td></tr>
+<tr><td>Upstream access</td><td><code>net/http</code> and <code>encoding/json</code></td><td>Fetches rounds.</td><td>The v1 HTTP API is simple, and all relays support it. <code>go-clients</code> adds no needed feature.</td></tr>
+<tr><td>Store</td><td>Bounded LRU in memory</td><td>Holds verified rounds.</td><td>A round is immutable and can be fetched again, so a restart loses nothing.</td></tr>
+<tr><td>Delivery</td><td>GitHub Releases</td><td>Binaries for Linux and macOS, on amd64 and arm64.</td><td>The project is self-hosted, so it has no deploy target.</td></tr>
+</table></div>
+<h3 id="repository-layout">Repository layout</h3>
+<pre class="code"><code>cmd/entropy53d/        gateway main
+cmd/entropy53/         CLI main
+chain/                 public: registry and round arithmetic
+record/                public: encode and decode a record body
+client/                public: client library
+internal/gateway/      names, answers, store, upstream, follower, limits
+testdata/vectors.json  vectors from real rounds
+test/interop/          interop tests against real resolvers
+draft/                 Internet-Draft source
+docs/operator-guide.md operator guide</code></pre>
+<h3 id="documentation-sources">Documentation sources</h3>
+<p>Each external claim has its source, version and retrieval date on <a href="html/page-evidence.html">the evidence page</a>.</p>
+<h2 id="data-model">Data model</h2>
+<div class="diagram"><pre class="mermaid">erDiagram
+  CHAIN ||--o{ ROUND : "produces"
+  ROUND ||--|| ROUND_RECORD : "encodes to"
+  STORE ||--o{ ROUND : "keeps"
+  CHAIN {
+    string beaconID PK
+    string chainHash
+    bytes publicKey
+    string schemeID
+    int64 genesisTime
+    int64 period
+  }
+  ROUND {
+    string beaconID PK
+    uint64 number PK
+    bytes signature
+    bytes previousSignature
+  }
+  ROUND_RECORD {
+    uint8 version
+    uint64 number
+    bytes signature
+    bytes previousSignature
+  }
+  STORE {
+    int capacity
+  }</pre></div>
+<h3 id="chain">Chain</h3>
+<p>A compiled constant. The registry is the only source of a public key. The values below come from the <code>/info</code> endpoint, retrieved 2026-11-06.</p>
+<div class="table-wrap"><table>
+<tr><th>beacon ID</th><th>Period</th><th>Genesis</th><th>Scheme</th><th>Signature bytes</th><th>Previous signature bytes</th></tr>
+<tr><td><code>quicknet</code></td><td>3 s</td><td>1692803367</td><td><code>bls-unchained-g1-rfc9380</code></td><td>48</td><td>0</td></tr>
+<tr><td><code>default</code></td><td>30 s</td><td>1595431050</td><td><code>pedersen-bls-chained</code></td><td>96</td><td>96</td></tr>
+<tr><td><code>evmnet</code></td><td>3 s</td><td>1727521075</td><td><code>bls-bn254-unchained-on-g1</code></td><td>64</td><td>0</td></tr>
+</table></div>
+<p>The chain hash and the public key for each chain are on <a href="html/page-evidence.html">the evidence page</a>.</p>
+<h3 id="round">Round</h3>
+<p>A round is immutable. The gateway keeps a round in the store only after it verifies the round. The gateway evicts the least recently used round when the store holds 100,000 rounds. An evicted round can be fetched again.</p>
+<h3 id="round-record">Round record</h3>
+<p>The format is specified in <a href="html/feature-record-format.html">the record format feature</a>. The base64 length is 76 characters for <code>quicknet</code>, 268 for <code>default</code> and 100 for <code>evmnet</code>.</p>
+<h3 id="migrations">Migrations</h3>
+<p>The project has no persistent data, so it has no migration.</p>
+<h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
+<h3 id="authentication-and-authorization">Authentication and authorization</h3>
+<p>The project has none. A round verifies itself, and every answer is public.</p>
+<h3 id="trust">Trust</h3>
+<ul>
+<li>The client library verifies every round. A round that fails verification is never returned to a caller.
+</li>
+<li>The client library computes <code>randomness</code> from the signature. The record body does not carry <code>randomness</code>.
+</li>
+<li>The gateway verifies every round before it keeps the round in the store. A bad upstream cannot put junk into a resolver cache through the gateway.
+</li>
+</ul>
+<h3 id="error-handling">Error handling</h3>
+<p>The gateway returns the DNS answers in <a href="html/feature-gateway-answers.html">the gateway answers feature</a>. The client library returns the typed errors in <a href="html/feature-client-library.html">the client library feature</a>. A panic in a DNS handler is a defect.</p>
+<h3 id="logs">Logs</h3>
+<p>The gateway writes structured JSON logs to standard output with <code>log/slog</code>. The gateway writes no log line per query. The gateway logs each upstream failure, each verification failure, and each change of follower state.</p>
+<h3 id="performance-targets">Performance targets</h3>
+<ul>
+<li>The gateway answers a query for a round in the store in less than 5 milliseconds at the 99th percentile on a loopback interface.
+</li>
+<li>The gateway holds the full store in less than 100 MB of memory.
+</li>
+<li>A follower sends at most 2 requests per round time per chain under normal conditions.
+</li>
+</ul>
+<h3 id="security-posture">Security posture</h3>
+<p><a href="html/page-threat-model.html">The threat model</a> lists each attacker and each result. Three limits protect the gateway:</p>
+<ul>
+<li>A rate limit per source prefix on UDP answers.
+</li>
+<li>A global budget for upstream requests from on-demand fetches.
+</li>
+<li>A single in-flight fetch per round.
+</li>
+</ul>
+<h3 id="accessibility-and-internationalization">Accessibility and internationalization</h3>
+<p>The CLI writes English text. The CLI output does not rely on color. The project has no other user interface.</p>
+<h2 id="environments-config">Environments &amp; config</h2>
+<p>The gateway has no environment variable and no secret. All configuration is in command-line flags.</p>
+<div class="table-wrap"><table>
+<tr><th>Flag</th><th>Required</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>--zone</code></td><td>yes</td><td>none</td><td>The delegated zone.</td></tr>
+<tr><td><code>--ns</code></td><td>yes, repeatable</td><td>none</td><td>The NS host names of the zone. Each name must be outside the zone.</td></tr>
+<tr><td><code>--soa-rname</code></td><td>yes</td><td>none</td><td>The SOA RNAME, for example <code>hostmaster.example.com.</code></td></tr>
+<tr><td><code>--listen</code></td><td>no</td><td><code>:53</code></td><td>The UDP and TCP listen address.</td></tr>
+<tr><td><code>--chains</code></td><td>no</td><td><code>quicknet,default,evmnet</code></td><td>The chains to serve.</td></tr>
+<tr><td><code>--upstream</code></td><td>no, repeatable</td><td>the four URLs below</td><td>The upstream base URLs.</td></tr>
+<tr><td><code>--udp-rate</code></td><td>no</td><td><code>2000</code></td><td>The UDP answers per second for one source prefix.</td></tr>
+<tr><td><code>--upstream-rate</code></td><td>no</td><td><code>20</code></td><td>The on-demand fetches per second for the gateway.</td></tr>
+</table></div>
+<p>The default upstream list:</p>
+<ul>
+<li><code>https://api.drand.sh</code>
+</li>
+<li><code>https://api2.drand.sh</code>
+</li>
+<li><code>https://api3.drand.sh</code>
+</li>
+<li><code>https://drand.cloudflare.com</code>
+</li>
+</ul>
+<p>Each of the four returned HTTP 200 for all three chains on 2026-11-06.</p>
+<p>The project has two environments: a loopback gateway for tests, and an operator's own zone. The project has no seed data. Tests use the vectors in <code>testdata/vectors.json</code>.</p>
+<h2 id="testing-strategy">Testing strategy</h2>
+<div class="table-wrap"><table>
+<tr><th>Level</th><th>Scope</th><th>Command</th><th>When</th></tr>
+<tr><td>Unit</td><td>Arithmetic, parser, encoder, TTL rules. Includes Go fuzz targets for the record decoder and the name parser.</td><td><code>go test -race ./...</code></td><td>Every pull request.</td></tr>
+<tr><td>Integration</td><td>Gateway in-process with a fake clock and a fake upstream, queried by the client library.</td><td><code>go test -race ./...</code></td><td>Every pull request.</td></tr>
+<tr><td>Interop</td><td>Real Unbound and real BIND between the client library and a gateway.</td><td><code>go test -tags interop ./test/interop/...</code></td><td>Every pull request into <code>dev</code>, and each release.</td></tr>
+<tr><td>Vector</td><td>Real rounds verify, and every encoder matches <code>testdata/vectors.json</code>.</td><td><code>go test ./record/...</code></td><td>Every pull request.</td></tr>
+<tr><td>Draft</td><td>The Internet-Draft builds, and its vectors equal <code>testdata/vectors.json</code>.</td><td><code>go test ./draft/...</code></td><td>Every pull request.</td></tr>
+</table></div>
+<p>No normal test contacts a real upstream, because that makes CI depend on an outside service. <code>make refresh-vectors</code> is the single manual exception.</p>
+<p>A change is done when:</p>
+<ol>
+<li>Its acceptance criteria pass in a test.
+</li>
+<li><code>go test -race ./...</code> passes.
+</li>
+<li><code>golangci-lint run</code> passes.
+</li>
+<li>The interop tests pass, if the change touches <code>internal/gateway/</code>, <code>record/</code> or <code>client/</code>.
+</li>
+</ol>
+<h2 id="epics">Epics</h2>
+<h3 id="epic-0-foundation">Epic 0: Foundation</h3>
+<ul>
+<li><strong>Goal:</strong> A fresh clone builds, tests and lints, and CI runs on pull requests.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-foundation.html">00-foundation</a>.
+</li>
+<li><strong>Depends on:</strong> nothing.
+</li>
+<li><strong>Exit criteria:</strong> A fresh clone runs each documented command, and <code>entropy53d --version</code> prints a version.
+</li>
+</ul>
+<h3 id="epic-1-record-format">Epic 1: Record format</h3>
+<ul>
+<li><strong>Goal:</strong> Real rounds encode, decode and verify for all three chains.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-record-format.html">01-record-format</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 0.
+</li>
+<li><strong>Exit criteria:</strong> The vector tests pass for all three chains. Demonstration: <code>go test -v ./record/...</code>.
+</li>
+</ul>
+<h3 id="epic-2-gateway-upstream">Epic 2: Gateway upstream</h3>
+<ul>
+<li><strong>Goal:</strong> The gateway holds verified current rounds and fetches old rounds on demand.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-gateway-upstream.html">02-gateway-upstream</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 1.
+</li>
+<li><strong>Exit criteria:</strong> A corrupt upstream round never reaches the store in a test.
+</li>
+</ul>
+<h3 id="epic-3-gateway-answers">Epic 3: Gateway answers</h3>
+<ul>
+<li><strong>Goal:</strong> <code>dig</code> receives a correct answer for each name shape.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-gateway-answers.html">03-gateway-answers</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 2.
+</li>
+<li><strong>Exit criteria:</strong> <code>dig TXT round.1000.quicknet.&lt;zone&gt; @127.0.0.1 -p 5353</code> returns a round record. This is the first public demonstration.
+</li>
+</ul>
+<h3 id="epic-4-client-and-cli">Epic 4: Client and CLI</h3>
+<ul>
+<li><strong>Goal:</strong> A draw organizer pins a round and later verifies the round.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-client-library.html">04-client-library</a>, <a href="html/feature-cli.html">05-cli</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 3.
+</li>
+<li><strong>Exit criteria:</strong> <code>entropy53 get quicknet 1000</code> prints verified randomness that equals the upstream value.
+</li>
+</ul>
+<h3 id="epic-5-interop-and-release">Epic 5: Interop and release</h3>
+<ul>
+<li><strong>Goal:</strong> The system works through real resolvers, and an operator can install a release.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-resolver-interop.html">06-resolver-interop</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 4.
+</li>
+<li><strong>Exit criteria:</strong> The interop tests pass on Unbound and BIND. A <code>v0.1.0</code> tag on <code>main</code> produces release binaries.
+</li>
+</ul>
+<h3 id="epic-6-internet-draft">Epic 6: Internet-Draft</h3>
+<ul>
+<li><strong>Goal:</strong> A complete draft in the repository, ready for a maintainer decision.
+</li>
+<li><strong>Covers:</strong> <a href="html/feature-internet-draft.html">07-internet-draft</a>.
+</li>
+<li><strong>Depends on:</strong> Epic 5, so that the draft describes tested behavior.
+</li>
+<li><strong>Exit criteria:</strong> CI builds the draft, and the draft vectors equal <code>testdata/vectors.json</code>.
+</li>
+</ul>
+<h2 id="milestones">Milestones</h2>
+<div class="table-wrap"><table>
+<tr><th>Milestone</th><th>After</th><th>Shippable meaning</th></tr>
+<tr><td>M0 Harness</td><td>Epic 0</td><td>CI works. No function yet.</td></tr>
+<tr><td>M1 Format</td><td>Epic 1</td><td>The format is fixed. Library code only.</td></tr>
+<tr><td>M2 Demonstrable gateway</td><td>Epic 3</td><td><code>dig</code> works on loopback with real rounds.</td></tr>
+<tr><td>M3 End to end</td><td>Epic 4</td><td>A draw works on loopback with real verification.</td></tr>
+<tr><td>M4 Release</td><td>Epic 5</td><td><code>v0.1.0</code> on <code>main</code>. Operators can run it.</td></tr>
+<tr><td>M5 Draft ready</td><td>Epic 6</td><td>The maintainer can decide on submission.</td></tr>
+</table></div>
+<h2 id="assumptions" class="callout-h">Assumptions</h2>
+<p>The planner made these decisions. The user did not state them.</p>
+<ul>
+<li>The Go module path is <code>github.com/Crank-Git/entropy53</code>.
+</li>
+<li>The <code>dev</code> branch is the integration branch, and <code>main</code> is the live branch. Promotion from <code>dev</code> to <code>main</code> is a separate approved step. A release tag goes on <code>main</code>.
+</li>
+<li>The positive TTL of a pinned round is 86400 seconds. Unbound limits a TTL to 86400 by default, so a higher value gives no benefit there.
+</li>
+<li>The maximum TTL of a negative answer for a future round is 300 seconds.
+</li>
+<li>The grace time is <code>max(2 * period, 10 seconds)</code>.
+</li>
+<li>A <code>latest</code> result is stale when it is more than 2 rounds older than the current round.
+</li>
+<li>The highest valid round number is 2^53. At a 3-second period that is more than 800 million years, and the limit prevents integer overflow.
+</li>
+<li>NS host names must be outside the zone, so the gateway needs no address records and no glue.
+</li>
+<li>The interop tests use Unbound and BIND. Both are common, and Unbound has QNAME minimization on by default.
+</li>
+<li>The draft name is <code>draft-crank-drand-dns</code>, and its intended status is Informational.
+</li>
+</ul>
+<h2 id="risks-open-questions" class="callout-h">Risks &amp; open questions</h2>
+<p>No item blocks approval. The first item needs an answer before Epic 6 starts.</p>
+<ol>
+<li><strong>Open: draft author block.</strong> The Internet-Draft needs an author name and a contact address. The maintainer supplies these. The address is public and permanent if the draft is submitted.
+</li>
+<li><strong>Resolver limits on a negative TTL.</strong> A resolver with a raised minimum negative TTL can delay a pinned round. Unbound <code>cache-min-negative-ttl</code> defaults to 0, so default Unbound is safe. The interop tests measure this on default Unbound and default BIND. Goal 3 applies to default settings only.
+</li>
+<li><strong>A spoofed answer in a resolver cache.</strong> An off-path attacker can put junk in a resolver cache. The client library rejects the junk, but the same resolver keeps returning it until its TTL ends. The client library has no fallback, by decision. The caller can select another resolver. DNSSEC would reduce this risk and is out of v1 scope.
+</li>
+<li><strong><code>github.com/miekg/dns</code> end of life.</strong> Its README states "At some point this repo will be archived." Keep the library behind <code>internal/gateway/</code> and <code>client/</code>. This limit keeps a later move to the successor small.
+</li>
+<li><strong>Size of the verification dependency.</strong> <code>drand/v2/crypto</code> brings grpc and protobuf into the client library dependency tree (148 packages in the spike). See <a href="../adr/0003-verification-library.md">ADR 0003</a>. A smaller verifier would mean new cryptographic code, which is a larger risk.
+</li>
+<li><strong>A chain can end.</strong> drand retired <code>fastnet</code>. A chain retirement requires a registry change and a new release. The published rounds of a retired chain remain valid.
+</li>
+<li><strong>Upstream limits are not published.</strong> The drand docs and the Cloudflare docs state no rate limit. The default <code>--upstream-rate</code> of 20 is an estimate. An operator can lower it.
+</li>
+<li><strong>The gap claim.</strong> One search on 2026-11-06 found no DNS delivery of drand rounds. A search cannot prove that none exists. The maintainer repeats the search before draft submission.
+</li>
+<li><strong>Query privacy.</strong> A resolver sees which rounds a client reads. A pinned round number can reveal interest in a specific draw. The Internet-Draft states this in its security section. The project has no mitigation in v1.
+</li>
+</ol>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-06: First draft for review.
+</li>
+<li>2026-11-06: The user approved the spec with no change. The Internet-Draft author block stays open until Epic 6.
+</li>
+</ul><nav class="pager">
+<span></span>
+<a href="html/page-threat-model.html">Threat model &rarr;</a>
+</nav>
+</main>
+</div>
+<script src="assets/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'default'});</script>
+<script type="application/json" id="rv-embedded">[]</script>
+<script>
+(function(){
+  'use strict';
+  var PAGE = document.body.getAttribute('data-page');
+  // storage key carries the spec's slug: file:// pages can share one
+  // localStorage pool, and two specs must never share a comment store
+  var RVKEY = 'spec-review:' + (document.body.getAttribute('data-rvkey') || 'spec');
+  var EMBED = [];
+  var embedEl = document.getElementById('rv-embedded');
+  if (embedEl) { try { EMBED = JSON.parse(embedEl.textContent); } catch(e){} }
+  function loadLocal(){ try { return JSON.parse(localStorage.getItem(RVKEY)) || {comments:[], deleted:[]}; } catch(e){ return {comments:[], deleted:[]}; } }
+  function saveLocal(s){ try { localStorage.setItem(RVKEY, JSON.stringify(s)); } catch(e){} }
+  function cid(c){ return c.page + '|' + c.section + '|' + (c.date||'') + '|' + c.body.slice(0,24); }
+  function allComments(){
+    var s = loadLocal(), map = {};
+    EMBED.forEach(function(c){ map[cid(c)] = c; });
+    s.comments.forEach(function(c){ map[cid(c)] = c; });
+    s.deleted.forEach(function(id){ delete map[id]; });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+  function upsert(c){
+    var s = loadLocal(), id = cid(c);
+    s.comments = s.comments.filter(function(x){ return cid(x) !== id; });
+    s.comments.push(c);
+    s.deleted = s.deleted.filter(function(x){ return x !== id; });
+    saveLocal(s); refresh();
+  }
+  function remove(c){
+    var s = loadLocal(), id = cid(c);
+    s.comments = s.comments.filter(function(x){ return cid(x) !== id; });
+    if (EMBED.some(function(x){ return cid(x) === id; })) s.deleted.push(id);
+    saveLocal(s); refresh();
+  }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function exportMd(){
+    var lines = ['# Review comments', '',
+      '<!-- Exported from the spec review layer. Save this file as',
+      '     docs/specs/review-comments.md and re-run render-spec.py to embed',
+      '     every comment under its section for the next review round. -->', ''];
+    allComments().sort(function(a,b){
+      return (a.page+a.section).localeCompare(b.page+b.section);
+    }).forEach(function(c){
+      lines.push('## [' + c.page + '] ' + (c.section||''));
+      lines.push('status: ' + (c.status||'open'));
+      lines.push('date: ' + (c.date||today()));
+      lines.push(c.body); lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], {type:'text/markdown'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'review-comments.md';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function importMd(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var text = String(reader.result);
+      var blocks = text.split(/^## /m).slice(1);
+      blocks.forEach(function(b){
+        var head = b.match(/^\[([^\]]+)\]\s*(\S*)/);
+        if (!head) return;
+        var status = (b.match(/^status:\s*(\S+)/m)||[])[1] || 'open';
+        var date = (b.match(/^date:\s*(\S+)/m)||[])[1] || today();
+        var body = b.replace(/^\[[^\]]*\]\s*\S*\s*\n/, '')
+                    .replace(/^status:.*\n?/m,'').replace(/^date:.*\n?/m,'').trim();
+        if (body) upsert({page:head[1], section:head[2]||'', status:status, date:date, body:body});
+      });
+      refresh();
+    };
+    reader.readAsText(file);
+  }
+  function commentBox(c){
+    var div = document.createElement('div');
+    div.className = 'rv-comment' + (c.status === 'resolved' ? ' rv-resolved' : '');
+    var head = document.createElement('div'); head.className = 'rv-head';
+    head.textContent = '💬 ' + (c.date||'') + ' · ' + (c.status||'open');
+    var tog = document.createElement('button');
+    tog.textContent = c.status === 'resolved' ? 'reopen' : 'resolve';
+    tog.onclick = function(){ remove(c); c = Object.assign({}, c, {status: c.status === 'resolved' ? 'open' : 'resolved'}); upsert(c); };
+    var del = document.createElement('button'); del.textContent = 'delete';
+    del.onclick = function(){ if (confirm('Delete this comment?')) remove(c); };
+    head.appendChild(tog); head.appendChild(del);
+    var body = document.createElement('div'); body.className = 'rv-body';
+    body.textContent = c.body;
+    div.appendChild(head); div.appendChild(body);
+    return div;
+  }
+  function editor(section, after){
+    var wrap = document.createElement('div');
+    wrap.className = 'rv-comment rv-editor';
+    var ta = document.createElement('textarea');
+    ta.placeholder = 'Comment on this section…';
+    var actions = document.createElement('div'); actions.className = 'rv-actions';
+    var save = document.createElement('button'); save.textContent = 'Save';
+    save.onclick = function(){
+      if (ta.value.trim()) upsert({page:PAGE, section:section, status:'open', date:today(), body:ta.value.trim()});
+      wrap.remove();
+    };
+    var cancel = document.createElement('button'); cancel.textContent = 'Cancel';
+    cancel.className = 'rv-cancel'; cancel.onclick = function(){ wrap.remove(); };
+    actions.appendChild(save); actions.appendChild(cancel);
+    wrap.appendChild(ta); wrap.appendChild(actions);
+    after.insertAdjacentElement('afterend', wrap);
+    ta.focus();
+  }
+  // --- headings, inline buttons ---
+  var mainH1 = document.querySelector('main h1');
+  if (mainH1 && !mainH1.id) { mainH1.id = 'page-title'; }
+  var headings = Array.prototype.slice.call(
+    document.querySelectorAll('main h1[id], main h2[id], main h3[id], main h4[id]'));
+  headings.forEach(function(h){
+    var b = document.createElement('button');
+    b.className = 'rv-add'; b.textContent = '💬 comment'; b.title = 'Comment on this section';
+    b.onclick = function(){ editor(h.id, h); };
+    h.appendChild(b);
+  });
+  function headingTitle(h){
+    var t = h.childNodes[0] ? h.childNodes[0].textContent : h.textContent;
+    return t.trim();
+  }
+  function titleFor(section){
+    var el = section && document.getElementById(section);
+    return el ? headingTitle(el) : (section || '(page)');
+  }
+
+  // --- drawer ---
+  var drawer = document.createElement('div');
+  drawer.id = 'rv-drawer';
+  drawer.innerHTML =
+    '<header><strong>Review</strong> <span class="rv-count"></span></header>' +
+    '<div class="rv-compose">' +
+    '<div class="rv-live">Commenting on the section in view:</div>' +
+    '<label for="rv-sec"></label><select id="rv-sec"></select>' +
+    '<textarea id="rv-text" placeholder="Type as you read… (Ctrl+Enter saves)"></textarea>' +
+    '<div style="margin-top:.4rem; display:flex; gap:.5rem;">' +
+    '<button class="rv-primary" id="rv-save">Save comment</button>' +
+    '<button id="rv-clear">Clear</button></div></div>' +
+    '<div class="rv-list"></div>' +
+    '<footer><button id="rv-export">Export .md</button>' +
+    '<button id="rv-import">Import</button>' +
+    '<span class="rv-otherpages"></span></footer>';
+  document.body.appendChild(drawer);
+  var toggle = document.createElement('button');
+  toggle.id = 'rv-toggle';
+  toggle.onclick = function(){
+    document.body.classList.toggle('rv-open');
+    try { localStorage.setItem(RVKEY + ':open', document.body.classList.contains('rv-open') ? '1' : ''); } catch(e){}
+  };
+  document.body.appendChild(toggle);
+  try { if (localStorage.getItem(RVKEY + ':open')) document.body.classList.add('rv-open'); } catch(e){}
+
+  var sel = drawer.querySelector('#rv-sec');
+  headings.forEach(function(h){
+    var opt = document.createElement('option');
+    opt.value = h.id; opt.textContent = headingTitle(h);
+    sel.appendChild(opt);
+  });
+  var followScroll = true;
+  sel.onchange = function(){ followScroll = false; };
+
+  // scroll spy: pick the last heading above the upper third of the viewport
+  function currentSection(){
+    var line = window.innerHeight * 0.33, best = headings[0];
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].getBoundingClientRect().top <= line) best = headings[i];
+    }
+    return best ? best.id : '';
+  }
+  window.addEventListener('scroll', function(){
+    if (!followScroll) return;
+    var s = currentSection();
+    if (s && sel.value !== s) sel.value = s;
+  }, {passive:true});
+  // typing pins the target section so a stray scroll can't retarget the comment
+  drawer.querySelector('#rv-text').addEventListener('input', function(){
+    if (this.value.trim()) followScroll = false;
+    else followScroll = true;
+  });
+
+  function saveFromDrawer(){
+    var ta = drawer.querySelector('#rv-text');
+    if (!ta.value.trim()) return;
+    upsert({page:PAGE, section:sel.value, status:'open', date:today(), body:ta.value.trim()});
+    ta.value = ''; followScroll = true;
+  }
+  drawer.querySelector('#rv-save').onclick = saveFromDrawer;
+  drawer.querySelector('#rv-text').addEventListener('keydown', function(e){
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveFromDrawer();
+  });
+  drawer.querySelector('#rv-clear').onclick = function(){
+    drawer.querySelector('#rv-text').value = ''; followScroll = true;
+  };
+  drawer.querySelector('#rv-export').onclick = exportMd;
+  var fileIn = document.createElement('input');
+  fileIn.type = 'file'; fileIn.accept = '.md,text/markdown'; fileIn.style.display = 'none';
+  fileIn.onchange = function(){ if (fileIn.files[0]) importMd(fileIn.files[0]); };
+  drawer.appendChild(fileIn);
+  drawer.querySelector('#rv-import').onclick = function(){ fileIn.click(); };
+
+  function drawerItem(c){
+    var div = document.createElement('div');
+    div.className = 'rv-item' + (c.status === 'resolved' ? ' rv-resolved' : '');
+    var where = document.createElement('div'); where.className = 'rv-where';
+    where.textContent = titleFor(c.section);
+    var text = document.createElement('div'); text.className = 'rv-text';
+    text.textContent = c.body;
+    var meta = document.createElement('div'); meta.className = 'rv-meta';
+    meta.textContent = (c.date||'') + ' · ' + (c.status||'open');
+    var tog = document.createElement('button');
+    tog.textContent = c.status === 'resolved' ? 'reopen' : 'resolve';
+    tog.onclick = function(e){ e.stopPropagation(); remove(c);
+      upsert(Object.assign({}, c, {status: c.status === 'resolved' ? 'open' : 'resolved'})); };
+    var del = document.createElement('button'); del.textContent = 'delete';
+    del.onclick = function(e){ e.stopPropagation();
+      if (confirm('Delete this comment?')) remove(c); };
+    meta.appendChild(tog); meta.appendChild(del);
+    div.appendChild(where); div.appendChild(text); div.appendChild(meta);
+    div.onclick = function(){
+      var el = c.section && document.getElementById(c.section);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+    return div;
+  }
+
+  function refresh(){
+    document.querySelectorAll('.rv-comment:not(.rv-editor)').forEach(function(el){ el.remove(); });
+    var all = allComments();
+    var mine = all.filter(function(c){ return c.page === PAGE; });
+    mine.forEach(function(c){
+      var target = c.section && document.getElementById(c.section);
+      var anchor = target || mainH1 || document.body.querySelector('main') || document.body;
+      anchor.insertAdjacentElement('afterend', commentBox(c));
+    });
+    var open = all.filter(function(c){ return c.status !== 'resolved'; }).length;
+    toggle.textContent = '💬 Review (' + open + ')';
+    drawer.querySelector('.rv-count').textContent =
+      open + ' open / ' + all.length + ' total';
+    var list = drawer.querySelector('.rv-list');
+    list.innerHTML = '';
+    mine.slice().reverse().forEach(function(c){ list.appendChild(drawerItem(c)); });
+    var others = {};
+    all.forEach(function(c){ if (c.page !== PAGE) others[c.page] = (others[c.page]||0) + 1; });
+    var otherKeys = Object.keys(others);
+    drawer.querySelector('.rv-otherpages').textContent = otherKeys.length
+      ? 'Other pages: ' + otherKeys.map(function(k){ return k + ' (' + others[k] + ')'; }).join(', ')
+      : '';
+  }
+  refresh();
+  var s0 = currentSection();
+  if (s0) sel.value = s0;
+})();
+</script>
+</body>
+</html>
