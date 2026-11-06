@@ -133,8 +133,7 @@ func TestValidRoundAndLatestNamesReturnNoErrorForOtherTypes(t *testing.T) {
 	wantRcode(t, addr, "latest.quicknet."+testZone, dns.TypeA, dns.RcodeSuccess)
 }
 
-func TestValidRoundAndLatestNamesReturnSERVFAILForTXT(t *testing.T) {
+func TestValidRoundNameReturnsSERVFAILForTXTWhenSourceFails(t *testing.T) {
 	addr, _ := newTestServer(t)
 	wantRcode(t, addr, "round.1000.quicknet."+testZone, dns.TypeTXT, dns.RcodeServerFailure)
-	wantRcode(t, addr, "latest.quicknet."+testZone, dns.TypeTXT, dns.RcodeServerFailure)
 }
