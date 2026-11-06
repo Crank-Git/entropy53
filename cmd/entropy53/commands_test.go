@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func TestRoundAtPastTimeWritesWarning(t *testing.T) {
 	if code != 0 || out != "34448212\n" {
 		t.Fatalf("got code %d, out %q", code, out)
 	}
-	want := "warning: round 34448212 already exists. A draw must not use it.\n"
+	want := "warning: this time is in the past. A draw must pin a round with a future time.\n"
 	if errOut != want {
 		t.Fatalf("errOut %q, want %q", errOut, want)
 	}
@@ -149,5 +150,41 @@ func TestResultsGoToStandardOutputAndErrorsToStandardError(t *testing.T) {
 	_, out, errOut = runCmd(now, "round-at", "x", "2026-12-01T18:00:00Z")
 	if out != "" || errOut == "" {
 		t.Fatalf("out %q, errOut %q", out, errOut)
+	}
+}
+
+func TestRoundAtPastTimeWarningMakesNoFalseClaim(t *testing.T) {
+	// The time is 1 second in the past, and the pinned round lies 13 seconds after it.
+	now := time.Date(2026, 12, 1, 18, 0, 1, 0, time.UTC)
+	code, out, errOut := runCmd(now, "round-at", "default", "2026-12-01T18:00:00Z")
+	if code != 0 || out == "" || strings.Contains(errOut, "exists") {
+		t.Fatalf("got code %d, out %q, errOut %q", code, out, errOut)
+	}
+}
+
+// failWriter is a writer whose every write fails, like a closed pipe.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+func TestFailedWriteToStandardOutputExitsOne(t *testing.T) {
+	addr := okGateway(t)
+	latestAddr := startGateway(t, vectorGateway{vectors: loadVectors(t), hasLatest: true})
+	cases := map[string][]string{
+		"chains":     {"chains"},
+		"round-at":   {"round-at", "quicknet", "2026-12-01T18:00:00Z"},
+		"get":        append([]string{"get", "quicknet", "1000"}, gatewayArgs(addr)...),
+		"get --json": append([]string{"get", "quicknet", "1000", "--json"}, gatewayArgs(addr)...),
+		"latest":     append([]string{"latest", "quicknet"}, gatewayArgs(latestAddr)...),
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			var e bytes.Buffer
+			code := runWith(args, failWriter{}, &e, fixedNow(round1000))
+			want := "error: cannot write to standard output (broken pipe).\n"
+			if code != 1 || strings.Count(e.String(), "error: ") != 1 || !strings.HasSuffix(e.String(), want) {
+				t.Fatalf("got code %d, errOut %q", code, e.String())
+			}
+		})
 	}
 }

@@ -16,6 +16,16 @@ var knownChains = []chain.Chain{chain.Quicknet, chain.Default, chain.Evmnet}
 
 const usageExit = 2
 
+// writeExit is the exit code for a failed write to standard output.
+// Without it, a script takes lost output for success.
+const writeExit = 1
+
+// writeFailed reports a failed write to standard output on errOut and returns writeExit.
+func writeFailed(errOut io.Writer, err error) int {
+	writeError(errOut, fmt.Sprintf("cannot write to standard output (%v).", err))
+	return writeExit
+}
+
 // writeError writes an error line to errOut. The text is the whole message after "error: ".
 func writeError(errOut io.Writer, msg string) {
 	_, _ = fmt.Fprintf(errOut, "error: %s\n", msg)
@@ -84,7 +94,8 @@ func newFlagSet(cmd, synopsis string, errOut io.Writer) *flag.FlagSet {
 
 // parseCommand parses the arguments of one command and checks the positional count.
 // It returns ok false with the exit code to return when parsing fails or the count is wrong.
-func parseCommand(fs *flag.FlagSet, args []string, count int, errOut io.Writer) (pos []string, code int, ok bool) {
+// usage reports a count error and returns the exit code. It runs after the flags parse, so it can read them.
+func parseCommand(fs *flag.FlagSet, args []string, count int, usage func(text string) int) (pos []string, code int, ok bool) {
 	pos, err := parseArgs(fs, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -93,26 +104,35 @@ func parseCommand(fs *flag.FlagSet, args []string, count int, errOut io.Writer) 
 		return nil, usageExit, false
 	}
 	if len(pos) != count {
-		writeError(errOut, fmt.Sprintf("%s takes %d argument(s), and got %d.", fs.Name(), count, len(pos)))
-		return nil, usageExit, false
+		return nil, usage(fmt.Sprintf("%s takes %d argument(s), and got %d.", fs.Name(), count, len(pos))), false
 	}
 	return pos, 0, true
 }
 
+// plainUsage returns the usage reporter of a command that has no --json flag.
+func plainUsage(errOut io.Writer) func(string) int {
+	return func(text string) int {
+		writeError(errOut, text)
+		return usageExit
+	}
+}
+
 func chains(args []string, out, errOut io.Writer) int {
 	fs := newFlagSet("chains", "entropy53 chains", errOut)
-	if _, code, ok := parseCommand(fs, args, 0, errOut); !ok {
+	if _, code, ok := parseCommand(fs, args, 0, plainUsage(errOut)); !ok {
 		return code
 	}
 	for _, c := range knownChains {
-		_, _ = fmt.Fprintln(out, c.BeaconID)
+		if _, err := fmt.Fprintln(out, c.BeaconID); err != nil {
+			return writeFailed(errOut, err)
+		}
 	}
 	return 0
 }
 
 func roundAt(args []string, out, errOut io.Writer, now func() time.Time) int {
 	fs := newFlagSet("round-at", "entropy53 round-at <chain> <RFC 3339 time>", errOut)
-	pos, code, ok := parseCommand(fs, args, 2, errOut)
+	pos, code, ok := parseCommand(fs, args, 2, plainUsage(errOut))
 	if !ok {
 		return code
 	}
@@ -132,9 +152,12 @@ func roundAt(args []string, out, errOut io.Writer, now func() time.Time) int {
 		writeError(errOut, err.Error())
 		return usageExit
 	}
-	_, _ = fmt.Fprintln(out, n)
+	if _, err := fmt.Fprintln(out, n); err != nil {
+		return writeFailed(errOut, err)
+	}
+	// The round time can lie after t, so the warning does not claim that the round exists.
 	if t.Before(now()) {
-		_, _ = fmt.Fprintf(errOut, "warning: round %d already exists. A draw must not use it.\n", n)
+		_, _ = fmt.Fprint(errOut, "warning: this time is in the past. A draw must pin a round with a future time.\n")
 	}
 	return 0
 }

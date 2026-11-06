@@ -20,8 +20,10 @@ type Config struct {
 	Zone     string
 	Chain    chain.Chain
 	Resolver string // "host:port". Empty means the system resolver.
-	Timeout  time.Duration
-	Clock    func() time.Time
+	// Timeout limits one call as a whole: the query, the TCP retry and the verification.
+	// Zero or less selects the default of 5 seconds.
+	Timeout time.Duration
+	Clock   func() time.Time
 }
 
 // Round is one verified round.
@@ -33,7 +35,9 @@ type Round struct {
 	PreviousSignature []byte
 }
 
-// The errors of the client library. Each returned error wraps one of these values.
+// The errors of the client library.
+// Round and Latest wrap one of these values in each error that follows a query.
+// The argument error of Round and each error of New wrap none of them.
 var (
 	ErrNotPublished = errors.New("round not published")
 	ErrWithheld     = errors.New("round withheld")
@@ -49,6 +53,8 @@ type Client struct {
 	resolver string // "host:port".
 	timeout  time.Duration
 	clock    func() time.Time
+	// dialer opens each connection to the resolver. A test replaces it to record the addresses that the client contacts.
+	dialer *net.Dialer
 }
 
 // New returns a Client for cfg.
@@ -79,7 +85,7 @@ func newClient(cfg Config, resolvConfPath string) (*Client, error) {
 	} else if err := checkHostPort(resolver); err != nil {
 		return nil, fmt.Errorf("client: resolver %q: %w", resolver, err)
 	}
-	c := &Client{cfg: cfg, zone: dns.Fqdn(cfg.Zone), resolver: resolver, timeout: cfg.Timeout, clock: cfg.Clock}
+	c := &Client{cfg: cfg, zone: dns.Fqdn(cfg.Zone), resolver: resolver, timeout: cfg.Timeout, clock: cfg.Clock, dialer: &net.Dialer{}}
 	if c.timeout <= 0 {
 		c.timeout = defaultTimeout
 	}
@@ -126,6 +132,9 @@ func (c *Client) Round(ctx context.Context, n uint64) (Round, error) {
 	if n < 1 || n > chain.MaxRound {
 		return Round{}, fmt.Errorf("client: round %d is outside 1 to %d", n, chain.MaxRound)
 	}
+	// One limit covers the query, the TCP retry and the verification.
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 	name := fmt.Sprintf("round.%d.%s.%s", n, c.cfg.Chain.BeaconID, c.zone)
 	answer, err := c.query(ctx, name)
 	if err != nil {
@@ -134,7 +143,7 @@ func (c *Client) Round(ctx context.Context, n uint64) (Round, error) {
 	if len(answer) == 0 {
 		return Round{}, c.negative(n)
 	}
-	return c.verifyRecords(answer, n)
+	return c.verifyRecords(ctx, answer, n)
 }
 
 // staleAfter is the number of rounds that the latest round can trail the current round and still count as fresh.
@@ -150,6 +159,8 @@ const staleAfter = 2
 // It returns the verified round and an error that wraps ErrStale when the round trails the current round by more than 2 rounds.
 // A round above the current round passes, because a valid signature proves that the round exists.
 func (c *Client) Latest(ctx context.Context) (Round, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 	name := fmt.Sprintf("latest.%s.%s", c.cfg.Chain.BeaconID, c.zone)
 	answer, err := c.query(ctx, name)
 	if err != nil {
@@ -158,7 +169,7 @@ func (c *Client) Latest(ctx context.Context) (Round, error) {
 	if len(answer) == 0 {
 		return Round{}, fmt.Errorf("%w: no latest round of %s", ErrWithheld, c.cfg.Chain.BeaconID)
 	}
-	r, err := c.verifyRecords(answer, 0)
+	r, err := c.verifyRecords(ctx, answer, 0)
 	if err != nil {
 		return Round{}, err
 	}

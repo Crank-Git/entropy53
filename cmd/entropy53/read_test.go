@@ -176,7 +176,9 @@ func TestRoundTextUsesUTC(t *testing.T) {
 	v := loadVectors(t)["quicknet"]
 	r := client.Round{Chain: "quicknet", Number: 1000, Signature: v.sig}
 	var out bytes.Buffer
-	writeRound(&out, v.chain, r, false, "")
+	if err := writeRound(&out, v.chain, r, false, ""); err != nil {
+		t.Fatalf("writeRound: %v", err)
+	}
 	if !strings.Contains(out.String(), "time:       2023-08-23T15:59:24Z\n") {
 		t.Fatalf("output %q", out.String())
 	}
@@ -310,5 +312,36 @@ func TestFlagsBeforeAndAfterPositionals(t *testing.T) {
 	_, before, _ := runCmd(round1000, append(append([]string{"get"}, gatewayArgs(addr)...), "quicknet", "1000")...)
 	if after != quicknetOut || before != after {
 		t.Fatalf("after %q, before %q", after, before)
+	}
+}
+
+func TestLatestStaleJSONHasErrorField(t *testing.T) {
+	addr := startGateway(t, vectorGateway{vectors: loadVectors(t), hasLatest: true})
+	args := append([]string{"latest", "quicknet", "--json"}, gatewayArgs(addr)...)
+	code, out, errOut := runCmd(chain.Quicknet.RoundTime(1003), args...)
+	want := strings.Replace(quicknetJSON, `"verified":true}`, `"verified":true,"error":"latest round 1000 is stale."}`, 1)
+	if code != 6 || out != want {
+		t.Fatalf("got code %d, out %q, want %q", code, out, want)
+	}
+	if !strings.HasSuffix(errOut, "error: latest round 1000 is stale.\n") {
+		t.Fatalf("errOut %q", errOut)
+	}
+}
+
+func TestUsageErrorWithJSONWritesJSONObject(t *testing.T) {
+	code, out, errOut := runCmd(round1000, "get", "quicknet", "--zone", "z", "--json")
+	text := "entropy53 get takes 2 argument(s), and got 1."
+	if code != 2 || out != `{"error":"`+text+`"}`+"\n" || errOut != "error: "+text+"\n" {
+		t.Fatalf("got code %d, out %q, errOut %q", code, out, errOut)
+	}
+}
+
+func TestNotPublishedErrorOmitsTimeBeyondYear9999(t *testing.T) {
+	addr := okGateway(t)
+	args := append([]string{"get", "default", "9007199254740992"}, gatewayArgs(addr)...)
+	code, out, errOut := runCmd(round1000, args...)
+	want := "error: round 9007199254740992 is not published.\n"
+	if code != 3 || out != "" || errOut != want {
+		t.Fatalf("got code %d, out %q, errOut %q", code, out, errOut)
 	}
 }

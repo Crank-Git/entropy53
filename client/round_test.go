@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"strings"
@@ -276,5 +277,95 @@ func TestDefaultRoundOneBodyReturnsErrInvalid(t *testing.T) {
 	_, err := newTestClient(t, chain.Default, r.addr, nil).Round(t.Context(), 1)
 	if !errors.Is(err, ErrInvalid) {
 		t.Errorf("Round error = %v; want ErrInvalid", err)
+	}
+}
+
+// badSignatureTXT returns the TXT strings of v with the last byte of the signature changed.
+func badSignatureTXT(t *testing.T, v testVector) []string {
+	t.Helper()
+	raw, err := record.FromStrings(v.txt)
+	if err != nil {
+		t.Fatalf("FromStrings: %v", err)
+	}
+	body, err := record.Decode(v.chain, raw)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	body.Sig[len(body.Sig)-1] ^= 1
+	raw, err = record.Encode(v.chain, body)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	return record.ToStrings(raw)
+}
+
+func TestRoundBadSignatureRecordThenValidRecordReturnsRound(t *testing.T) {
+	v := loadVectors(t)[0]
+	bad := badSignatureTXT(t, v)
+	for name, records := range map[string][][]string{
+		"bad first":  {bad, v.txt},
+		"bad second": {v.txt, bad},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := fixedResolver(t, records...)
+			got, err := newTestClient(t, v.chain, r.addr, nil).Round(t.Context(), v.number)
+			if err != nil {
+				t.Fatalf("Round: %v", err)
+			}
+			if got.Randomness != v.randomness {
+				t.Errorf("randomness = %x; want %x", got.Randomness, v.randomness)
+			}
+		})
+	}
+}
+
+func TestRoundBadBase64RecordThenValidRecordReturnsRound(t *testing.T) {
+	v := loadVectors(t)[0]
+	r := fixedResolver(t, []string{"not base64!"}, v.txt)
+	got, err := newTestClient(t, v.chain, r.addr, nil).Round(t.Context(), v.number)
+	if err != nil {
+		t.Fatalf("Round: %v", err)
+	}
+	if got.Randomness != v.randomness {
+		t.Errorf("randomness = %x; want %x", got.Randomness, v.randomness)
+	}
+}
+
+func TestRoundCNAMEThenTXTReturnsRound(t *testing.T) {
+	v := loadVectors(t)[0]
+	r := startResolver(t, func(_ string, req *dns.Msg) *dns.Msg {
+		resp := txtReply(req, v.txt)
+		cname := &dns.CNAME{
+			Hdr:    dns.RR_Header{Name: req.Question[0].Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: 60},
+			Target: "other.beacon.example.",
+		}
+		resp.Answer = append([]dns.RR{cname}, resp.Answer...)
+		return resp
+	})
+	got, err := newTestClient(t, v.chain, r.addr, nil).Round(t.Context(), v.number)
+	if err != nil {
+		t.Fatalf("Round: %v", err)
+	}
+	if got.Randomness != v.randomness {
+		t.Errorf("randomness = %x; want %x", got.Randomness, v.randomness)
+	}
+}
+
+func TestVerifyRecordsStopsWhenContextEnds(t *testing.T) {
+	v := loadVectors(t)[0]
+	answer := make([]dns.RR, 0, 729)
+	for range 728 {
+		answer = append(answer, &dns.TXT{Hdr: dns.RR_Header{Name: "x.", Rrtype: dns.TypeTXT, Class: dns.ClassINET}, Txt: []string{"junk"}})
+	}
+	answer = append(answer, &dns.TXT{Hdr: dns.RR_Header{Name: "x.", Rrtype: dns.TypeTXT, Class: dns.ClassINET}, Txt: v.txt})
+	c := newTestClient(t, v.chain, "127.0.0.1:53", nil)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err := c.verifyRecords(ctx, answer, v.number)
+	if !errors.Is(err, ErrTransport) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("verifyRecords error = %v; want ErrTransport and context.Canceled", err)
+	}
+	if _, err := c.verifyRecords(t.Context(), answer, v.number); err != nil {
+		t.Fatalf("verifyRecords with a live context: %v", err)
 	}
 }

@@ -42,7 +42,8 @@ type roundJSON struct {
 // writeRound writes the verified round r of chain c to out.
 // The time is UTC, so the output does not depend on the local zone.
 // errText is added to the JSON object when it is not empty.
-func writeRound(out io.Writer, c chain.Chain, r client.Round, asJSON bool, errText string) {
+// It returns the error of the write to out.
+func writeRound(out io.Writer, c chain.Chain, r client.Round, asJSON bool, errText string) error {
 	rt := c.RoundTime(r.Number).UTC().Format(time.RFC3339)
 	randomness := hex.EncodeToString(r.Randomness[:])
 	signature := hex.EncodeToString(r.Signature)
@@ -58,11 +59,12 @@ func writeRound(out io.Writer, c chain.Chain, r client.Round, asJSON bool, errTe
 			Verified:          true,
 			Error:             errText,
 		})
-		_, _ = fmt.Fprintf(out, "%s\n", b)
-		return
+		_, err := fmt.Fprintf(out, "%s\n", b)
+		return err
 	}
-	_, _ = fmt.Fprintf(out, "chain:      %s\nround:      %d\ntime:       %s\nrandomness: %s\nsignature:  %s\nverified:   yes\n",
+	_, err := fmt.Fprintf(out, "chain:      %s\nround:      %d\ntime:       %s\nrandomness: %s\nsignature:  %s\nverified:   yes\n",
 		r.Chain, r.Number, rt, randomness, signature)
+	return err
 }
 
 // fail reports an error and returns code.
@@ -87,8 +89,6 @@ func exitCode(err error) int {
 		return exitWithheld
 	case errors.Is(err, client.ErrInvalid):
 		return exitInvalid
-	case errors.Is(err, client.ErrStale):
-		return exitStale
 	default:
 		return exitTransport
 	}
@@ -99,7 +99,12 @@ func exitCode(err error) int {
 func errorText(err error, c chain.Chain, n uint64, r client.Round) string {
 	switch {
 	case errors.Is(err, client.ErrNotPublished):
-		return fmt.Sprintf("round %d is not published. Its round time is %s.", n, c.RoundTime(n).UTC().Format(time.RFC3339))
+		rt := c.RoundTime(n).UTC()
+		// RFC 3339 allows years 0000 to 9999 only, and a round near chain.MaxRound lies beyond year 9999.
+		if rt.Year() > 9999 {
+			return fmt.Sprintf("round %d is not published.", n)
+		}
+		return fmt.Sprintf("round %d is not published. Its round time is %s.", n, rt.Format(time.RFC3339))
 	case errors.Is(err, client.ErrWithheld) && n == 0:
 		return "the latest round is withheld."
 	case errors.Is(err, client.ErrWithheld):
@@ -127,11 +132,11 @@ func readCmd(name, synopsis string, count int, args []string, out, errOut io.Wri
 	zone := fs.String("zone", "", "the zone of the gateway (required)")
 	resolver := fs.String("resolver", "", "the resolver as host:port. The default is the system resolver")
 	asJSON := fs.Bool("json", false, "print one JSON object")
-	pos, code, ok := parseCommand(fs, args, count, errOut)
+	usage := func(text string) int { return fail(out, errOut, *asJSON, usageExit, text) }
+	pos, code, ok := parseCommand(fs, args, count, usage)
 	if !ok {
 		return code
 	}
-	usage := func(text string) int { return fail(out, errOut, *asJSON, usageExit, text) }
 	if *zone == "" {
 		return usage("--zone is required.")
 	}
@@ -158,13 +163,17 @@ func readCmd(name, synopsis string, count int, args []string, out, errOut io.Wri
 		r, err = cl.Latest(context.Background())
 	}
 	if err == nil {
-		writeRound(out, c, r, *asJSON, "")
+		if werr := writeRound(out, c, r, *asJSON, ""); werr != nil {
+			return writeFailed(errOut, werr)
+		}
 		return 0
 	}
 	text := errorText(err, c, n, r)
 	if errors.Is(err, client.ErrStale) {
 		// Latest verified the round before it reported the stale state, so the CLI prints the round too.
-		writeRound(out, c, r, *asJSON, text)
+		if werr := writeRound(out, c, r, *asJSON, text); werr != nil {
+			return writeFailed(errOut, werr)
+		}
 		writeError(errOut, text)
 		return exitStale
 	}

@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -133,8 +136,7 @@ func TestQueryRetriesOverTCPAfterTC(t *testing.T) {
 	}
 }
 
-func TestRoundContactsOnlyConfiguredResolver(t *testing.T) {
-	decoy := startResolver(t, func(_ string, req *dns.Msg) *dns.Msg { return rcodeReply(req, dns.RcodeSuccess) })
+func TestQueryTCPRetryStaysOnConfiguredResolver(t *testing.T) {
 	want := vectorTXT(t, "quicknet")
 	r := startResolver(t, func(network string, req *dns.Msg) *dns.Msg {
 		if network == "udp" {
@@ -151,8 +153,70 @@ func TestRoundContactsOnlyConfiguredResolver(t *testing.T) {
 	if got := len(r.queries()); got != 2 {
 		t.Fatalf("configured resolver received %d queries, want 2", got)
 	}
-	if got := len(decoy.queries()); got != 0 {
-		t.Fatalf("decoy resolver received %d queries, want 0", got)
+}
+
+func TestRoundDialsOnlyConfiguredResolver(t *testing.T) {
+	r := startResolver(t, func(_ string, req *dns.Msg) *dns.Msg { return rcodeReply(req, dns.RcodeServerFailure) })
+	var mu sync.Mutex
+	var dialed []string
+	c := testClient(t, r.addr, nil)
+	c.dialer = &net.Dialer{Control: func(_, address string, _ syscall.RawConn) error {
+		mu.Lock()
+		defer mu.Unlock()
+		dialed = append(dialed, address)
+		return nil
+	}}
+	if err := roundWithin(t, context.Background(), c, 1000); !errors.Is(err, ErrTransport) {
+		t.Fatalf("Round error = %v, want ErrTransport", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(dialed) == 0 {
+		t.Fatal("the client dialed no address")
+	}
+	for _, addr := range dialed {
+		if addr != r.addr {
+			t.Errorf("the client dialed %s, want only %s", addr, r.addr)
+		}
+	}
+}
+
+func TestQueryNamesUnknownRcodeByNumber(t *testing.T) {
+	r := startResolver(t, func(_ string, req *dns.Msg) *dns.Msg { return rcodeReply(req, 12) })
+	c := testClient(t, r.addr, nil)
+	_, err := queryWithin(t, context.Background(), c, "round.1.quicknet.beacon.example.")
+	if err == nil || !strings.HasSuffix(err.Error(), "resolver answered 12") {
+		t.Fatalf("query error = %v, want a message that ends with \"resolver answered 12\"", err)
+	}
+}
+
+func TestQueryRetriesOverTCPAfterCutTCAnswer(t *testing.T) {
+	want := vectorTXT(t, "quicknet")
+	r := startRawResolver(t, func(network string, w dns.ResponseWriter, req *dns.Msg) {
+		if network == "tcp" {
+			_ = w.WriteMsg(txtReply(req, want))
+			return
+		}
+		resp := txtReply(req, want)
+		resp.Truncated = true
+		packet, err := resp.Pack()
+		if err != nil {
+			t.Errorf("Pack: %v", err)
+			return
+		}
+		// The cut falls inside the TXT record, so the library cannot unpack the answer.
+		_, _ = w.Write(packet[:len(packet)-5])
+	})
+	c := testClient(t, r.addr, nil)
+	rrs, err := queryWithin(t, context.Background(), c, "round.1000.quicknet.beacon.example.")
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if u, tc := r.count("udp"), r.count("tcp"); u != 1 || tc != 1 {
+		t.Fatalf("queries: udp %d, tcp %d, want 1 and 1", u, tc)
+	}
+	if len(rrs) != 1 {
+		t.Fatalf("query returned %d records, want 1", len(rrs))
 	}
 }
 
@@ -161,7 +225,7 @@ func TestRoundSendsRoundNameWithEDNS1232(t *testing.T) {
 		t.Run(zone, func(t *testing.T) {
 			r := startResolver(t, func(_ string, req *dns.Msg) *dns.Msg { return rcodeReply(req, dns.RcodeSuccess) })
 			c := testClient(t, r.addr, func(cfg *Config) { cfg.Zone = zone })
-			// Verification belongs to a later change. Only the transport result matters here.
+			// The empty reply is a negative answer, so only the transport result matters here.
 			if err := roundWithin(t, context.Background(), c, 1000); errors.Is(err, ErrTransport) {
 				t.Fatalf("Round error = %v, want no transport error", err)
 			}

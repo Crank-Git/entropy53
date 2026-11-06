@@ -66,6 +66,17 @@ func (r *testResolver) waitQuery(t *testing.T) {
 // A nil result from answer sends nothing. An answer function that blocks must unblock before cleanup.
 func startResolver(t *testing.T, answer func(network string, req *dns.Msg) *dns.Msg) *testResolver {
 	t.Helper()
+	return startRawResolver(t, func(network string, w dns.ResponseWriter, req *dns.Msg) {
+		if resp := answer(network, req); resp != nil {
+			_ = w.WriteMsg(resp)
+		}
+	})
+}
+
+// startRawResolver is startResolver with a handler that writes to w itself.
+// A test uses it to send a packet that a Msg cannot encode, such as a cut packet.
+func startRawResolver(t *testing.T, serve func(network string, w dns.ResponseWriter, req *dns.Msg)) *testResolver {
+	t.Helper()
 	l, pc := listenPair(t)
 	r := &testResolver{addr: l.Addr().String(), queried: make(chan struct{}, 16)}
 	h := dns.HandlerFunc(func(w dns.ResponseWriter, req *dns.Msg) {
@@ -80,9 +91,7 @@ func startResolver(t *testing.T, answer func(network string, req *dns.Msg) *dns.
 		case r.queried <- struct{}{}:
 		default:
 		}
-		if resp := answer(network, req); resp != nil {
-			_ = w.WriteMsg(resp)
-		}
+		serve(network, w, req)
 	})
 	startedUDP, startedTCP := make(chan struct{}), make(chan struct{})
 	servers := []*dns.Server{

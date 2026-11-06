@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -30,10 +31,15 @@ func (c *Client) negative(n uint64) error {
 // verifyRecords returns the first TXT record of answer that verifies against the registry key.
 // A want of 0 accepts any round number. Any other want rejects a record with another number.
 // It computes the randomness from the signature and reads no other value from a record.
+// It checks ctx before each record, because an answer can hold hundreds of records and each check costs time.
+// It returns an error that wraps ErrTransport and the context error when ctx ends before a record verifies.
 // It returns an error that wraps ErrInvalid when no record verifies.
-func (c *Client) verifyRecords(answer []dns.RR, want uint64) (Round, error) {
+func (c *Client) verifyRecords(ctx context.Context, answer []dns.RR, want uint64) (Round, error) {
 	ch := c.cfg.Chain
 	for _, rr := range answer {
+		if err := ctx.Err(); err != nil {
+			return Round{}, fmt.Errorf("%w: %w", ErrTransport, err)
+		}
 		txt, ok := rr.(*dns.TXT)
 		if !ok {
 			continue

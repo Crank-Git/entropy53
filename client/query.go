@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/miekg/dns"
 )
@@ -12,19 +13,17 @@ const ednsSize = 1232
 
 // query sends one TXT query for name to the resolver and returns the answer records.
 // It retries once over TCP when the answer has the TC bit. It sends no other query.
+// The caller sets the time limit with ctx.
 // A negative answer returns no records and no error.
 // Each failure, and each RCODE other than NOERROR and NXDOMAIN, returns an error that wraps ErrTransport.
 func (c *Client) query(ctx context.Context, name string) ([]dns.RR, error) {
-	// One timeout covers the UDP query and the TCP retry.
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-
 	m := new(dns.Msg)
 	m.SetQuestion(name, dns.TypeTXT)
 	m.SetEdns0(ednsSize, false)
 
 	r, err := c.exchange(ctx, "udp", m)
-	if err == nil && r.Truncated {
+	// The library returns the header of a packet that it cannot unpack, so a cut TC answer also retries over TCP.
+	if r != nil && r.Truncated {
 		r, err = c.exchange(ctx, "tcp", m)
 	}
 	if err != nil {
@@ -38,7 +37,11 @@ func (c *Client) query(ctx context.Context, name string) ([]dns.RR, error) {
 	case dns.RcodeSuccess, dns.RcodeNameError:
 		return r.Answer, nil
 	default:
-		return nil, fmt.Errorf("%w: resolver answered %s", ErrTransport, dns.RcodeToString[r.Rcode])
+		name, ok := dns.RcodeToString[r.Rcode]
+		if !ok {
+			name = strconv.Itoa(r.Rcode)
+		}
+		return nil, fmt.Errorf("%w: resolver answered %s", ErrTransport, name)
 	}
 }
 
@@ -46,7 +49,7 @@ func (c *Client) query(ctx context.Context, name string) ([]dns.RR, error) {
 // A cancel or a deadline of ctx closes the connection, because the library reads ctx.Deadline only.
 func (c *Client) exchange(ctx context.Context, network string, m *dns.Msg) (*dns.Msg, error) {
 	// The library read timeout defaults to 2 seconds, so the client sets its own limit.
-	cl := &dns.Client{Net: network, Timeout: c.timeout}
+	cl := &dns.Client{Net: network, Timeout: c.timeout, Dialer: c.dialer}
 	co, err := cl.DialContext(ctx, c.resolver)
 	if err != nil {
 		return nil, err
