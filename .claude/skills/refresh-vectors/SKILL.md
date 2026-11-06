@@ -29,7 +29,7 @@ A new vector or a new chain needs a code edit in `scripts/refreshvectors/main.go
    go test ./record/...
    ```
 
-5. After issue #37 lands, update the test vector appendix in `draft/draft-crank-drand-dns.md`, then run the comparison.
+5. Update the test vector appendix in `draft/draft-crank-drand-dns.md`, then run the comparison.
 
    ```
    go test ./draft/...

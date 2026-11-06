@@ -233,6 +233,17 @@ evmnet scheme=bls-bn254-unchained-on-g1 siglen=64 prevlen=0 verify=&lt;nil&gt; w
 <tr><td><code>api2</code>, <code>api3</code>, <code>drand.cloudflare.com</code>, <code>&lt;each chain&gt;/public/1000</code></td><td>HTTP 200 for all nine combinations</td></tr>
 </table></div>
 <p>The live <code>public/latest</code> round and the formula agree. Round 33725163 was the latest at one moment, and the formula gave 33725178 for a time about 45 seconds later.</p>
+<h2 id="evidence-round-1-of-default">Round 1 of default</h2>
+<p>Read by hand on 2026-11-06 from <code>https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/public/1</code>. No test does this.</p>
+<ul>
+<li>The <code>signature</code> field has 96 bytes.
+</li>
+<li>The <code>previous_signature</code> field has 32 bytes. Its value equals the group hash of <code>default</code>.
+</li>
+<li><code>Chain.Verify</code> with the registry public key returns no error for this round.
+</li>
+</ul>
+<p>The record body for <code>default</code> holds a previous signature of 96 bytes, so it cannot hold this round. The maintainer ruled on #46 that the gateway does not serve round 1 of <code>default</code>.</p>
 <h2 id="evidence-size-arithmetic">Size arithmetic</h2>
 <p>Each body has a 1-byte version and an 8-byte round number.</p>
 <div class="table-wrap"><table>

@@ -225,3 +225,34 @@ func TestApexNSOverUDPSetsTCAboveClientSize(t *testing.T) {
 		t.Errorf("TCP answer: TC = %v, records = %d, want false and %d", tcp.Truncated, len(tcp.Answer), len(cfg.NS))
 	}
 }
+
+// RFC 6891 section 6.1.3: a responder that does not implement the requested EDNS version answers BADVERS
+// with an OPT record of the highest version it implements.
+func TestHigherEDNSVersionReturnsBADVERS(t *testing.T) {
+	src := &fakeSource{}
+	l := startListeners(t, testConfig(t), src)
+	for _, network := range []string{"udp", "tcp"} {
+		m := new(dns.Msg).SetQuestion(roundName(1000), dns.TypeTXT)
+		m.SetEdns0(1232, false)
+		m.IsEdns0().SetVersion(1)
+		r := exchange(t, network, l.Addr(), m)
+		if r.Rcode != dns.RcodeBadVers {
+			t.Errorf("%s: rcode = %s, want BADVERS", network, dns.RcodeToString[r.Rcode])
+		}
+		opt := r.IsEdns0()
+		if opt == nil {
+			t.Errorf("%s: answer has no OPT record", network)
+		} else if opt.Version() != 0 {
+			t.Errorf("%s: OPT version = %d, want 0", network, opt.Version())
+		}
+		if len(r.Answer) != 0 {
+			t.Errorf("%s: answer section holds %d records, want 0", network, len(r.Answer))
+		}
+		if r.Authoritative {
+			t.Errorf("%s: AA = true, want false", network)
+		}
+	}
+	if n := src.calls(); n != 0 {
+		t.Errorf("Source calls = %d, want 0", n)
+	}
+}

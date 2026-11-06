@@ -2,7 +2,7 @@
 id: internet-draft
 feature: Internet-Draft
 epic: "Epic 6: Internet-Draft"
-status: issued
+status: built
 issues: [36, 37, 38]
 mockups: []
 ---
@@ -60,15 +60,13 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[Draft is complete] --> B[Maintainer reads the rendered text]
-  B --> C[Maintainer supplies the author block]
-  C --> D{Submit to the IETF?}
+  B --> D{Submit to the IETF?}
   D -->|no| E[Draft stays in the repository]
   D -->|yes| F[Maintainer submits by hand]
 ```
 
 1. The maintainer reads the rendered text.
-2. The maintainer supplies the author block.
-3. The maintainer decides whether to submit.
+2. The maintainer decides whether to submit.
 
 The project and its workers never submit the draft, because a submission is public and permanent.
 
@@ -119,4 +117,4 @@ Submission to the IETF, working group adoption, a media type and an IANA registr
 
 ## Open questions
 
-- The author name and the contact address. The maintainer supplies these before Epic 6 starts.
+None. The maintainer supplied the author name and the contact address.
