@@ -2,7 +2,10 @@ module github.com/Crank-Git/entropy53
 
 go 1.27
 
-require github.com/drand/drand/v2 v2.1.8
+require (
+	github.com/drand/drand/v2 v2.1.8
+	github.com/miekg/dns v1.1.73
+)
 
 require (
 	github.com/drand/kyber v1.3.3 // indirect
