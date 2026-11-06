@@ -170,12 +170,15 @@ type stub struct {
 // resolvers lists the resolvers that the tests run against.
 var resolvers = []resolver{
 	{name: "unbound", image: unboundImage, start: startUnbound},
+	{name: "bind", image: bindImage, start: startBIND},
 }
 
 // harnessConfig holds the options of newHarness.
 type harnessConfig struct {
 	lead     time.Duration
 	settings []setting
+	beacon   string
+	counter  []counterOption
 }
 
 // harnessOption changes the harness that newHarness builds.
@@ -184,6 +187,16 @@ type harnessOption func(*harnessConfig)
 // withLead sets how long before the round time the gateway clock stands. A negative value puts it after the round time.
 func withLead(d time.Duration) harnessOption {
 	return func(c *harnessConfig) { c.lead = d }
+}
+
+// withBeacon selects the chain whose round time sets the gateway clock. The default is testBeacon.
+func withBeacon(id string) harnessOption {
+	return func(c *harnessConfig) { c.beacon = id }
+}
+
+// withTruncatedAnswers makes every UDP answer of the counter a TC answer, so that the resolver retries over TCP.
+func withTruncatedAnswers() harnessOption {
+	return func(c *harnessConfig) { c.counter = append(c.counter, withTruncatedUDP()) }
 }
 
 // setting is a resolver option that the tests switch on. Each resolver start function maps it to its own configuration.
@@ -209,6 +222,8 @@ type harness struct {
 	counter *counter
 	// addr is where a client queries the resolver.
 	addr string
+	// beacon is the chain that the tests read.
+	beacon string
 }
 
 // newHarness starts the gateway, the counter and the resolver r, and then sets the gateway clock.
@@ -217,11 +232,16 @@ type harness struct {
 func newHarness(t *testing.T, r resolver, opts ...harnessOption) *harness {
 	t.Helper()
 	needDocker(t)
-	cfg := harnessConfig{lead: 4 * time.Second}
+	cfg := harnessConfig{lead: 4 * time.Second, beacon: testBeacon}
 	for _, o := range opts {
 		o(&cfg)
 	}
 	g := startGateway(t)
+	c0, err := chain.Lookup(cfg.beacon)
+	if err != nil {
+		t.Fatalf("look up chain %q: %v", cfg.beacon, err)
+	}
+	g.chain = c0
 	hostIP, err := containerHostIP()
 	if err != nil {
 		t.Fatalf("read the host address of a container: %v", err)
@@ -230,16 +250,19 @@ func newHarness(t *testing.T, r resolver, opts ...harnessOption) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := newCounter(t, bind, g.listeners.Addr())
+	c := newCounter(t, bind, g.listeners.Addr(), cfg.counter...)
 	addr := r.start(t, stub{zone: zone, ip: hostIP, port: c.port}, cfg.settings)
 	c.reset()
 	g.setLead(cfg.lead)
-	return &harness{gw: g, counter: c, addr: addr}
+	return &harness{gw: g, counter: c, addr: addr, beacon: cfg.beacon}
 }
 
-// roundName returns the name of the test round.
-func roundName() string {
-	return fmt.Sprintf("round.%d.%s.%s", testRound, testBeacon, zone)
+// roundName returns the name of the test round of testBeacon.
+func roundName() string { return roundNameFor(testBeacon) }
+
+// roundNameFor returns the name of the test round of one chain.
+func roundNameFor(beacon string) string {
+	return fmt.Sprintf("round.%d.%s.%s", testRound, beacon, zone)
 }
 
 // dnsQuery sends one TXT-style question to addr over network and returns the parsed answer.

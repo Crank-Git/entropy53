@@ -73,7 +73,7 @@ func startUnbound(t *testing.T, s stub, settings []setting) string {
 // Its clock is the gateway clock, so that the client classifies a negative answer by the gateway time.
 func newClient(t *testing.T, h *harness) (*client.Client, chain.Chain) {
 	t.Helper()
-	c, err := chain.Lookup(testBeacon)
+	c, err := chain.Lookup(h.beacon)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func awaitRound(t *testing.T, h *harness, cl *client.Client, interval, timeout t
 	for {
 		r, err := cl.Round(context.Background(), testRound)
 		if err == nil {
-			checkRandomness(t, r)
+			checkRandomness(t, h.beacon, r)
 			got = h.gw.now()
 			return got
 		}
@@ -112,17 +112,17 @@ func awaitRound(t *testing.T, h *harness, cl *client.Client, interval, timeout t
 }
 
 // checkRandomness compares the randomness that the client computed with the value in the vector file.
-func checkRandomness(t *testing.T, r client.Round) {
+func checkRandomness(t *testing.T, beacon string, r client.Round) {
 	t.Helper()
 	for _, v := range loadVectors(t) {
-		if v.BeaconID == testBeacon && v.Round == testRound {
+		if v.BeaconID == beacon && v.Round == testRound {
 			if got := hex.EncodeToString(r.Randomness[:]); got != v.Randomness {
 				t.Errorf("randomness = %s, want %s", got, v.Randomness)
 			}
 			return
 		}
 	}
-	t.Fatalf("no vector for %s round %d", testBeacon, testRound)
+	t.Fatalf("no vector for %s round %d", beacon, testRound)
 }
 
 func unbound() resolver { return resolvers[0] }
