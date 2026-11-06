@@ -200,3 +200,82 @@ func TestQuicknetRound1000String(t *testing.T) {
 	}
 	t.Fatal("no quicknet vector for round 1000")
 }
+
+// flipBit returns a copy of b with one bit changed. Bit 0 is the first bit of the first byte.
+func flipBit(b []byte, bit int) []byte {
+	out := slices.Clone(b)
+	out[bit/8] ^= 0x80 >> (bit % 8)
+	return out
+}
+
+func TestVectorVerifies(t *testing.T) {
+	for _, v := range loadVectors(t) {
+		c, _ := chain.Lookup(v.BeaconID)
+		if err := c.Verify(v.Round, mustHex(t, v.Signature), mustHex(t, v.PreviousSignature)); err != nil {
+			t.Errorf("%s: Verify: %v", v.BeaconID, err)
+		}
+	}
+}
+
+func TestVectorRandomnessEqualsExpected(t *testing.T) {
+	for _, v := range loadVectors(t) {
+		got := chain.Randomness(mustHex(t, v.Signature))
+		if want := mustHex(t, v.Randomness); !bytes.Equal(got[:], want) {
+			t.Errorf("%s: Randomness = %x, want %x", v.BeaconID, got, want)
+		}
+	}
+}
+
+func TestVerifyRejectsRoundNumberPlusOne(t *testing.T) {
+	for _, v := range loadVectors(t) {
+		c, _ := chain.Lookup(v.BeaconID)
+		if err := c.Verify(v.Round+1, mustHex(t, v.Signature), mustHex(t, v.PreviousSignature)); err == nil {
+			t.Errorf("%s: Verify accepted round %d", v.BeaconID, v.Round+1)
+		}
+	}
+}
+
+func TestVerifyRejectsChangedSignatureBit(t *testing.T) {
+	for _, v := range loadVectors(t) {
+		c, _ := chain.Lookup(v.BeaconID)
+		sig := mustHex(t, v.Signature)
+		for _, bit := range []int{0, len(sig)*8 - 1} {
+			if err := c.Verify(v.Round, flipBit(sig, bit), mustHex(t, v.PreviousSignature)); err == nil {
+				t.Errorf("%s: Verify accepted a signature with bit %d changed", v.BeaconID, bit)
+			}
+		}
+	}
+}
+
+// An unchained scheme does not sign the previous signature, so Verify passes an empty one.
+func TestVerifyPassesEmptyPrevSigOnUnchainedChain(t *testing.T) {
+	for _, id := range []string{"quicknet", "evmnet"} {
+		c, vs := vectorsOf(t, id)
+		for _, v := range vs {
+			if err := c.Verify(v.Round, mustHex(t, v.Signature), nil); err != nil {
+				t.Errorf("%s: Verify with empty previous signature: %v", id, err)
+			}
+		}
+	}
+}
+
+func TestVerifyRejectsChangedPrevSigOnChainedChain(t *testing.T) {
+	c, vs := vectorsOf(t, "default")
+	for _, v := range vs {
+		prev := mustHex(t, v.PreviousSignature)
+		if err := c.Verify(v.Round, mustHex(t, v.Signature), flipBit(prev, 8)); err == nil {
+			t.Error("Verify accepted a changed previous signature")
+		}
+	}
+}
+
+func TestVerifyRejectsAnotherChainKey(t *testing.T) {
+	_, vs := vectorsOf(t, "quicknet")
+	for _, other := range []chain.Chain{chain.Default, chain.Evmnet} {
+		for _, v := range vs {
+			if err := other.Verify(v.Round, mustHex(t, v.Signature), nil); err == nil {
+				t.Errorf("%s accepted a quicknet round", other.BeaconID)
+			}
+		}
+	}
+}
