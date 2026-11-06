@@ -35,6 +35,9 @@ type counter struct {
 	target string
 	// ednsSize replaces the EDNS UDP payload size of each forwarded query. Zero keeps the query as it is.
 	ednsSize uint16
+	// truncateUDP makes the counter return only the header, the question and the TC bit for each UDP answer.
+	// A real gateway never truncates a round answer, because the answer is smaller than the 512 bytes that every client accepts.
+	truncateUDP bool
 
 	mu    sync.Mutex
 	log   []*exchange
@@ -48,6 +51,24 @@ type counterOption func(*counter)
 // withEDNSSize makes the counter set the EDNS UDP payload size of each forwarded query.
 func withEDNSSize(size uint16) counterOption {
 	return func(c *counter) { c.ednsSize = size }
+}
+
+// withTruncatedUDP makes the counter answer each UDP query with a TC answer, so that the resolver must retry over TCP.
+// The gateway still receives and answers the query.
+func withTruncatedUDP() counterOption {
+	return func(c *counter) { c.truncateUDP = true }
+}
+
+// truncatedReply returns r with the TC bit set and with no record in any answer section.
+// The OPT record stays out too, as in the TC answer of the gateway limits.
+func truncatedReply(r *dnsmessage.Message) ([]byte, error) {
+	r.Truncated = true
+	r.Answers, r.Authorities, r.Additionals = nil, nil, nil
+	out, err := r.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("pack truncated reply: %w", err)
+	}
+	return out, nil
 }
 
 // newCounter listens on UDP and TCP on one port of ip and forwards each query to target.
@@ -201,6 +222,9 @@ func (c *counter) forward(network string, query []byte) ([]byte, error) {
 		c.mu.Lock()
 		e.reply = r.Questions[0].Name.String()
 		c.mu.Unlock()
+		if c.truncateUDP && network == "udp" {
+			return truncatedReply(&r)
+		}
 	}
 	return reply, nil
 }
@@ -269,6 +293,26 @@ func TestCounterForwardsAndCountsUDPAndTCP(t *testing.T) {
 	c.reset()
 	if c.count() != 0 {
 		t.Errorf("count after reset = %d, want 0", c.count())
+	}
+}
+
+func TestCounterTruncatesUDPAndKeepsTCPWhenAsked(t *testing.T) {
+	g := startGateway(t)
+	c := newCounter(t, "127.0.0.1", g.listeners.Addr(), withTruncatedUDP())
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(c.port))
+	udp, err := dnsQuery("udp", addr, "beacon.example.", dnsmessage.TypeSOA)
+	if err != nil {
+		t.Fatalf("udp query: %v", err)
+	}
+	if !udp.Truncated || len(udp.Answers) != 0 || len(udp.Questions) != 1 {
+		t.Errorf("udp: TC %v, %d answers, %d questions, want TC, 0 and 1", udp.Truncated, len(udp.Answers), len(udp.Questions))
+	}
+	tcp, err := dnsQuery("tcp", addr, "beacon.example.", dnsmessage.TypeSOA)
+	if err != nil {
+		t.Fatalf("tcp query: %v", err)
+	}
+	if tcp.Truncated || len(tcp.Answers) != 1 {
+		t.Errorf("tcp: TC %v, %d answers, want no TC and 1 SOA", tcp.Truncated, len(tcp.Answers))
 	}
 }
 

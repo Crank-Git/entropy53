@@ -1,0 +1,22 @@
+name: interop
+
+# GitHub Actions skips a run when the head commit message holds [skip ci].
+# The suite runs on a pull request into dev or main, so a promotion also runs it before a release.
+on:
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  interop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+      # GitHub sets CI, so a missing Docker fails the run.
+      - run: go test -tags interop ./test/interop/...
