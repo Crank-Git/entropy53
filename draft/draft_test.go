@@ -214,3 +214,65 @@ func TestDraftStatesFormatVersionRule(t *testing.T) {
 		"A change to the layout MUST change the version byte.",
 		"The vectors of an earlier version stay as a separate vector set.")
 }
+
+// The security tests check that the text exists. A person checks that the text is true.
+
+func TestSecuritySectionCoversWithheldRound(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"A gateway, a resolver or any party on the path can withhold a round.",
+		`reports "withheld"`,
+		"loss of availability")
+}
+
+func TestSecuritySectionCoversSelectionAmongLatestRounds(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"A gateway can select among recent rounds at a latest name.",
+		"A pinned round has exactly one valid value",
+		"A draw MUST use a pinned round and MUST NOT use a latest name.")
+}
+
+func TestSecuritySectionCoversSpoofedRecordInResolverCache(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"place a false record in the cache of a resolver",
+		"A false record fails verification",
+		"until its TTL ends",
+		"The caller can select another resolver.")
+}
+
+func TestSecuritySectionCoversClientClock(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"The clock has no effect on whether a signature verifies.",
+		"hide a stale latest round",
+		"A client MUST NOT read a clock when it verifies a signature.")
+}
+
+func TestSecuritySectionCoversQueryPrivacy(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"The name of a query holds the chain and the round number.",
+		"They learn which rounds a client reads",
+		"This document gives no protection against that observation.")
+}
+
+func TestSecuritySectionCoversEachOtherThreatModelAttacker(t *testing.T) {
+	requireText(t, section(t, "Security Considerations"),
+		"A gateway can return a forged signature",
+		"A valid round with another round number fails",
+		"A gateway has no advantage over any other reader.",
+		"junk never reaches a resolver cache through the gateway",
+		"a gain of about 7.7",
+		"A query flood for random old round numbers",
+		"A query flood for random future round numbers costs arithmetic only",
+		"all clients accept it")
+}
+
+func TestAppendixHoldsOneVectorPerChain(t *testing.T) {
+	appendix := section(t, "Test Vectors")
+	if got := strings.Count(appendix, "\n~~~ vector\n"); got != 3 {
+		t.Errorf("the appendix holds %d vector blocks, want 3", got)
+	}
+	for _, id := range []string{"quicknet", "default", "evmnet"} {
+		if got := strings.Count(appendix, "\nbeacon_id: "+id+"\n"); got != 1 {
+			t.Errorf("the appendix holds %d vectors for chain %s, want 1", got, id)
+		}
+	}
+}
