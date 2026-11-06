@@ -48,6 +48,9 @@ const (
 type Config struct {
 	// Upstreams holds the upstream base URLs in order of preference.
 	Upstreams []string
+	// Rate is the number of on-demand fetches per second that the gateway allows (FR-upstream-13).
+	// A Rate of 0 allows none.
+	Rate int
 	// Log receives one line per upstream failure. A nil Log selects slog.Default.
 	Log *slog.Logger
 }
@@ -65,6 +68,11 @@ type Upstreams struct {
 	mu sync.Mutex
 	// preferred holds, per chain hash, the index of the upstream that last succeeded.
 	preferred map[string]int
+
+	// flightMu guards flights and budget.
+	flightMu sync.Mutex
+	flights  map[storeKey]*flight
+	budget   budget
 }
 
 // NewUpstreams returns an Upstreams for the list in cfg.
@@ -84,6 +92,8 @@ func NewUpstreams(cfg Config) *Upstreams {
 		clock:     realClock{},
 		store:     newStore(storeCapacity),
 		preferred: make(map[string]int),
+		flights:   make(map[storeKey]*flight),
+		budget:    budget{rate: float64(cfg.Rate)},
 	}
 }
 
