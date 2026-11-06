@@ -130,7 +130,24 @@ func (h *handler) answer(r, m *dns.Msg) {
 			h.setNoData(m, ttlOtherType)
 			break
 		}
-		// TODO(#24): Answer a latest name with the latest round record.
+		h.answerLatest(m, q.Name, p)
+	}
+}
+
+// answerLatest answers a TXT query at the latest name that owner spells and p describes.
+// It reads the latest round from Source and sends no fetch, because a latest name is for convenience only.
+// The TTL ends at the next round time (FR-answers-18). With no round in the store it returns NODATA with TTL 1 (FR-answers-19).
+// A failure to build the record returns SERVFAIL.
+func (h *handler) answerLatest(m *dns.Msg, owner string, p parsedName) {
+	rd, ok := h.src.Latest(p.chain)
+	if !ok {
+		h.setNoData(m, ttlDue)
+		return
+	}
+	// A follower that is behind gives a next round time in the past, and clampTTL raises it to 1.
+	ttl := clampTTL(p.chain.RoundTime(rd.Number+1).Sub(h.clock.Now()), 1, uint32(p.chain.Period))
+	if err := setRoundRecord(m, owner, p.chain, rd, ttl); err != nil {
+		h.log.Error("latest record encode failed", "beacon_id", p.chain.BeaconID, "round", rd.Number, "error", err)
 		m.Rcode = dns.RcodeServerFailure
 	}
 }
