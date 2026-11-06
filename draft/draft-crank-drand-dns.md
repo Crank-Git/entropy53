@@ -189,7 +189,8 @@ The record body is a byte string with this layout:
 L and P are fixed for each chain ({{chain-parameters}}).
 The body length is therefore 9 + L + P bytes exactly.
 The body has no chain field.
-The DNS name states the chain, and a signature that does not match the chain fails verification.
+The DNS name states the chain, so a decoder takes the chain as an input.
+A signature that does not match the chain fails verification.
 The body repeats the round number, because a latest name has no number in it.
 The repeated number also binds a round name to its answer, so a gateway cannot return round 500 at the name of round 1000.
 
@@ -199,6 +200,8 @@ The repeated number also binds a round name to its answer, so a gateway cannot r
 | `default` | 96 | 96 | 201 | 268 | 2 |
 | `evmnet` | 64 | 0 | 73 | 100 | 1 |
 
+A decoder first decodes the base64 text of the record ({{base64-text}}).
+The checks below apply to the decoded body.
 A decoder MUST reject a body whose length differs from the exact length for the chain.
 A decoder MUST check the length before it reads any field.
 A decoder MUST reject a version other than 0x01.
@@ -206,7 +209,7 @@ A decoder MUST reject a round number below 1 or above 2^53.
 The version check and the round number check come after the length check, in either order.
 The order of those two checks changes only which failure a decoder reports.
 
-## Base64 Text
+## Base64 Text {#base64-text}
 
 The text of the record is the base64 encoding of the record body, with the standard alphabet and with padding ({{Section 4 of RFC4648}}).
 The text has no white space and no line break.
@@ -220,11 +223,13 @@ The text of `default` needs two strings.
 A decoder MUST concatenate all character-strings of one TXT record before it decodes the base64 text.
 A decoder MUST NOT rely on a split at octet 255, and MUST accept a split at any position.
 A decoder MUST ignore a zero-length character-string.
+A record with no character-string, or with only zero-length character-strings, has an empty text, and its body fails the length check of {{record-body}}.
 A decoder MUST reject the concatenated text in each of these cases:
 
 * The text has a character outside the standard alphabet, and the padding character `=` is the only extra character allowed.
   This includes a space, a tab, a carriage return and a line feed.
 * The text has padding that is missing, too long, or not at the end.
+  A text whose length is not a multiple of 4 has padding that is missing or too long.
 * The last base64 character has non-zero bits that the decoded bytes do not use.
 
 Example.
