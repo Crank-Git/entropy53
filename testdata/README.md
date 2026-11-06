@@ -1,0 +1,22 @@
+# Vector file
+
+`vectors.json` holds the vectors. A vector is one real round with its expected record body. The `vectors` array is empty until issue #15 fills it.
+
+## Schema
+
+The file is one JSON object with one key, `vectors`. The value is an array of vector objects.
+
+Each vector object has these fields (FR-record-21):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `beacon_id` | string | The beacon ID of the chain. |
+| `round` | number | The round number. |
+| `signature` | string | The signature in hexadecimal. |
+| `previous_signature` | string | The previous signature in hexadecimal. The value is empty for a chain that has no previous signature. |
+| `txt` | array of strings | The expected TXT strings of the record. |
+| `randomness` | string | The expected randomness in hexadecimal. |
+
+## Refresh
+
+Until issue #15 lands, `make refresh-vectors` exits non-zero and prints a message. It does not rewrite the file and does not contact an upstream. After #15, the target rewrites the file from a real upstream, so no normal test runs it.

@@ -135,7 +135,7 @@ The tests read `testdata/vectors.json`. The feature adds a query counter in the 
 - A client sends one query per second from 5 seconds before a round time. With default Unbound and default BIND, the client receives the round within 5 seconds after the round time.
 - A reader who follows `docs/operator-guide.md` reaches a first verified read on a test zone.
 - The first section of the README shows a `round-at` and a `get` command.
-- A `v0.1.0` tag on `main` creates a GitHub Release with four binaries and a checksum file.
+- A `v0.1.0` tag on `main` creates a GitHub Release with four binaries for each of `entropy53d` and `entropy53`, eight in total, and a checksum file.
 
 ## Out of scope
 

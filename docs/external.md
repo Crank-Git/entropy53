@@ -14,7 +14,7 @@ The project has none. The gateway uses command-line flags. See `docs/specs/spec.
 
 ## GitHub
 
-- Repository: `Crank-Git/entropy53`, public. TODO(Epic 0): Create the repository.
+- Repository: `Crank-Git/entropy53`, public.
 - CI and releases: GitHub Actions. The workflows use the automatic `GITHUB_TOKEN`.
 
 ## Zone delegation

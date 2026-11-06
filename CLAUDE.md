@@ -1,6 +1,6 @@
 # entropy53
 
-entropy53 serves drand rounds over DNS. A gateway answers TXT queries on a delegated zone. A client verifies each round with a BLS signature against a public key in the registry, so the gateway is not trusted. The main use is a pinned round for a draw. The `latest` name is for convenience only. Current state: spec only. No code exists yet.
+entropy53 serves drand rounds over DNS. A gateway answers TXT queries on a delegated zone. A client verifies each round with a BLS signature against a public key in the registry, so the gateway is not trusted. The main use is a pinned round for a draw. The `latest` name is for convenience only.
 
 Design lives in `docs/specs/`. Read `docs/specs/spec.md` and the relevant `docs/specs/features/*.md` before you build a feature. The words in `docs/specs/spec.md` § Terms are the project vocabulary.
 
@@ -18,6 +18,8 @@ Design lives in `docs/specs/`. Read `docs/specs/spec.md` and the relevant `docs/
 - `record/`: public. Record body encoder and decoder.
 - `client/`: public. Client library.
 - `internal/gateway/`: names, answers, store, upstream, follower, limits.
+- `internal/version/`: build version source.
+- `scripts/`: release build script and its test.
 - `testdata/vectors.json`: real rounds.
 - `test/interop/`: tests against real resolvers.
 - `draft/`: Internet-Draft source.

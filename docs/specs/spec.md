@@ -200,6 +200,8 @@ chain/                 public: registry and round arithmetic
 record/                public: encode and decode a record body
 client/                public: client library
 internal/gateway/      names, answers, store, upstream, follower, limits
+internal/version/      build version source
+scripts/               release build script and its test
 testdata/vectors.json  vectors from real rounds
 test/interop/          interop tests against real resolvers
 draft/                 Internet-Draft source
@@ -494,3 +496,4 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 
 - 2026-11-06: First draft for review.
 - 2026-11-06: The user approved the spec with no change. The Internet-Draft author block stays open until Epic 6.
+- 2026-11-06: The release builds both binaries on four targets, eight files in total. The "four binaries" criteria now state this.
