@@ -19,7 +19,7 @@ func TestInteropWorkflowRunsOnPullRequestsIntoDevAndMain(t *testing.T) {
 		"pull_request:\n    branches: [dev, main]",
 		"runs-on: ubuntu-latest",
 		"timeout-minutes: 15",
-		"run: go test -tags interop ./test/interop/...",
+		"run: go test -tags interop ./test/interop/... ./internal/gateway/...",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("workflow lacks %q", want)

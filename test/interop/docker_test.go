@@ -3,6 +3,7 @@
 package interop
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -24,6 +25,11 @@ const (
 	alpineImage = "alpine:3.22@sha256:bfe7ceb9f09ec0566c48fb93356e45a47a00be5a1dd14fa5b909e7709c66b034"
 	// dockerTimeout limits one docker command.
 	dockerTimeout = 60 * time.Second
+	// pullTimeout limits the pull of one image. A pull downloads layers, so it takes longer than other commands.
+	pullTimeout = 5 * time.Minute
+	// staleAge is the age after which TestMain removes a container that an earlier run left.
+	// A concurrent run finishes within the job timeout, which is shorter, so the limit never removes its containers.
+	staleAge = 30 * time.Minute
 )
 
 var (
@@ -60,16 +66,80 @@ func dockerGate(available bool, ci string) gate {
 	}
 }
 
-// docker runs the docker CLI and returns its combined output.
+// docker runs the docker CLI and returns its standard output.
+// Standard error goes only into the error message, because a caller parses the output
+// and a pull message on standard error would break the parse.
 func docker(args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dockerTimeout)
+	return dockerTimed(dockerTimeout, args...)
+}
+
+// dockerTimed is docker with its own time limit.
+func dockerTimed(limit time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	text := strings.TrimSpace(string(out))
 	if err != nil {
-		return text, fmt.Errorf("docker %s: %w: %s", strings.Join(args, " "), err, text)
+		return text, fmt.Errorf("docker %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
 	return text, nil
+}
+
+// pinnedImages lists every image that the tests start, each with its digest.
+func pinnedImages() []string {
+	images := []string{alpineImage}
+	for _, r := range resolvers {
+		images = append(images, r.image)
+	}
+	return images
+}
+
+// pullImages pulls every pinned image before the first test, so that no container start includes a pull.
+func pullImages() error {
+	for _, image := range pinnedImages() {
+		if _, err := dockerTimed(pullTimeout, "pull", "--quiet", image); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// staleContainers returns the names of the containers that are older than maxAge.
+// Each line holds a name, a space and the creation time in the format of docker ps ("2006-01-02 15:04:05 -0700 MST").
+// A line that does not parse is skipped, so that the function never removes a container it cannot date.
+func staleContainers(lines string, now time.Time, maxAge time.Duration) []string {
+	var stale []string
+	for _, line := range strings.Split(lines, "\n") {
+		name, created, ok := strings.Cut(strings.TrimSpace(line), " ")
+		if !ok {
+			continue
+		}
+		t, err := time.Parse("2006-01-02 15:04:05 -0700 MST", strings.TrimSpace(created))
+		if err != nil {
+			continue
+		}
+		if now.Sub(t) > maxAge {
+			stale = append(stale, name)
+		}
+	}
+	return stale
+}
+
+// removeStaleContainers removes the labeled containers that an interrupted run left.
+func removeStaleContainers() error {
+	out, err := docker("ps", "-a", "--filter", "label="+containerLabel, "--format", "{{.Names}} {{.CreatedAt}}")
+	if err != nil {
+		return err
+	}
+	for _, name := range staleContainers(out, time.Now(), staleAge) {
+		if err := removeContainer(name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // needDocker skips the test when Docker is missing on a developer machine.
@@ -82,8 +152,8 @@ func needDocker(t *testing.T) {
 
 // removeContainer removes a container, running or not, with its anonymous volumes.
 func removeContainer(name string) error {
-	out, err := docker("rm", "-f", "-v", name)
-	if err != nil && !strings.Contains(out, "No such container") {
+	_, err := docker("rm", "-f", "-v", name)
+	if err != nil && !strings.Contains(err.Error(), "No such container") {
 		return err
 	}
 	return nil
@@ -166,7 +236,9 @@ func containerLogs(name string) string {
 	}
 	var b strings.Builder
 	for _, n := range names {
-		logs, err := docker("logs", n)
+		// docker logs replays the container's stderr on its own stderr, so this call reads both streams.
+		combined, err := exec.Command("docker", "logs", n).CombinedOutput()
+		logs := strings.TrimSpace(string(combined))
 		if err != nil {
 			logs = err.Error()
 		}

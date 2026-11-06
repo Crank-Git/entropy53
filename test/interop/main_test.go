@@ -5,17 +5,30 @@ package interop
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
-// TestMain checks Docker and then runs the tests. It starts no container.
+// TestMain checks Docker, pulls the pinned images, removes stale containers and then runs the tests.
+// It starts no container.
 // After the tests it fails the run when a container of this run remains.
 func TestMain(m *testing.M) {
 	_, err := docker("version", "--format", "{{.Server.Version}}")
 	switch dockerGate(err == nil, os.Getenv("CI")) {
 	case gateRun:
 		dockerReady = true
+		// A container start must never include a pull, so the pull happens here with its own time limit.
+		if err := pullImages(); err != nil {
+			fmt.Fprintf(os.Stderr, "interop: pull the pinned images: %v\n", err)
+			os.Exit(1)
+		}
+		// An interrupted run leaves its containers, and its run ID never recurs.
+		if err := removeStaleContainers(); err != nil {
+			fmt.Fprintf(os.Stderr, "interop: remove stale containers: %v\n", err)
+			os.Exit(1)
+		}
 	case gateFail:
 		fmt.Fprintf(os.Stderr, "interop: Docker is not available in CI: %v\n", err)
 		os.Exit(1)
@@ -58,6 +71,20 @@ func TestMissingDockerSkipsOnDeveloperMachineAndFailsInCI(t *testing.T) {
 				t.Errorf("dockerGate(%v, %q) = %d, want %d", c.available, c.ci, got, c.want)
 			}
 		})
+	}
+}
+
+func TestStaleContainersSelectsOnlyContainersOlderThanTheLimit(t *testing.T) {
+	now := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	lines := "old 2026-11-06 11:20:00 +0000 UTC\n" +
+		"young 2026-11-06 11:45:00 +0000 UTC\n" +
+		"edge 2026-11-06 11:30:00 +0000 UTC\n" +
+		"zoned 2026-11-06 03:00:00 -0700 MST\n" +
+		"broken not-a-time\n\n"
+	got := staleContainers(lines, now, 30*time.Minute)
+	want := []string{"old", "zoned"}
+	if !slices.Equal(got, want) {
+		t.Errorf("staleContainers = %v, want %v", got, want)
 	}
 }
 

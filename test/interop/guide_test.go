@@ -5,11 +5,11 @@ package interop
 import (
 	"bufio"
 	"context"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -60,21 +60,6 @@ func loopbackCommands(t *testing.T) (gatewayLine, digLine, getLine string) {
 		}
 	}
 	return gatewayLine, digLine, getLine
-}
-
-// freeLoopbackPort returns a port that is free on UDP and TCP at the time of the call.
-func freeLoopbackPort(t *testing.T) string {
-	t.Helper()
-	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("find a free port: %v", err)
-	}
-	defer func() { _ = pc.Close() }()
-	_, port, err := net.SplitHostPort(pc.LocalAddr().String())
-	if err != nil {
-		t.Fatalf("split the address: %v", err)
-	}
-	return port
 }
 
 // buildBinary builds the command at pkg into dir and returns the path of the binary.
@@ -162,10 +147,13 @@ func (g *guideGateway) stop(t *testing.T) {
 }
 
 // runGuideDig runs the dig line of the guide and requires a TXT record in the answer.
-// It logs and returns when dig is not installed.
+// A missing dig fails the test in CI. On a developer machine, the test logs it and skips only this step.
 func runGuideDig(t *testing.T, line, port string) {
 	t.Helper()
 	if _, err := exec.LookPath("dig"); err != nil {
+		if os.Getenv("CI") != "" {
+			t.Fatalf("dig is not installed, and CI requires it: %v", err)
+		}
 		t.Logf("dig is not installed, so the test skips the dig command: %v", err)
 		return
 	}
@@ -185,7 +173,7 @@ func TestOperatorGuideLoopbackReachesVerifiedRead(t *testing.T) {
 	gatewayBin := buildBinary(t, dir, "entropy53d")
 	cliBin := buildBinary(t, dir, "entropy53")
 	fake := newFakeUpstream(t)
-	port := freeLoopbackPort(t)
+	port := strconv.Itoa(freePort(t))
 
 	// The guide command reads the public relays. The test adds --upstream so that no real upstream receives a request.
 	gw := startGuideGateway(t, gatewayBin, append(guideArgs(gatewayLine, port)[1:], "--upstream", fake.URL))

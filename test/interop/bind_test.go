@@ -69,10 +69,8 @@ func startBIND(t *testing.T, s stub, settings []setting) string {
 	return addr
 }
 
-func bind() resolver { return resolvers[1] }
-
 func TestBINDPinnedRound(t *testing.T) {
-	h := newHarness(t, bind())
+	h := newHarness(t, resolverByName(t, "bind"))
 	cl, c := newClient(t, h)
 	t.Run("returns NODATA before the round time", func(t *testing.T) {
 		if !h.gw.now().Before(c.RoundTime(testRound)) {

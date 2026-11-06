@@ -72,6 +72,9 @@ func TestReadmeRoundAtExampleGivesTheGetRound(t *testing.T) {
 	if getArgs[2] != round {
 		t.Fatalf("the get line uses round %q, round-at prints %q", getArgs[2], round)
 	}
+	if !strings.Contains(body, "prints `"+round+"`") {
+		t.Fatalf("the prose does not state that the command prints `%s`", round)
+	}
 }
 
 func TestReadmeStatesLatestHasNoSecurityGain(t *testing.T) {

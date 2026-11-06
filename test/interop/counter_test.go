@@ -24,8 +24,6 @@ type exchange struct {
 	network string
 	// query is the question name of the forwarded query, and reply is the question name of the answer.
 	query, reply string
-	// sentSize is the EDNS UDP payload size of the forwarded query. It is 0 when the query has no OPT record.
-	sentSize uint16
 }
 
 // counter forwards the queries of a resolver to the gateway and counts them.
@@ -33,8 +31,6 @@ type exchange struct {
 type counter struct {
 	port   int
 	target string
-	// ednsSize replaces the EDNS UDP payload size of each forwarded query. Zero keeps the query as it is.
-	ednsSize uint16
 	// truncateUDP makes the counter return only the header, the question and the TC bit for each UDP answer.
 	// A real gateway never truncates a round answer, because the answer is smaller than the 512 bytes that every client accepts.
 	truncateUDP bool
@@ -47,11 +43,6 @@ type counter struct {
 
 // counterOption changes a counter.
 type counterOption func(*counter)
-
-// withEDNSSize makes the counter set the EDNS UDP payload size of each forwarded query.
-func withEDNSSize(size uint16) counterOption {
-	return func(c *counter) { c.ednsSize = size }
-}
 
 // withTruncatedUDP makes the counter answer each UDP query with a TC answer, so that the resolver must retry over TCP.
 // The gateway still receives and answers the query.
@@ -179,14 +170,7 @@ func (c *counter) forward(network string, query []byte) ([]byte, error) {
 	if err := m.Unpack(query); err != nil || len(m.Questions) != 1 {
 		return nil, fmt.Errorf("unpack query: %v", err)
 	}
-	if c.ednsSize != 0 {
-		setEDNSSize(&m, c.ednsSize)
-		var err error
-		if query, err = m.Pack(); err != nil {
-			return nil, fmt.Errorf("pack query: %w", err)
-		}
-	}
-	e := &exchange{network: network, query: m.Questions[0].Name.String(), sentSize: ednsSize(&m)}
+	e := &exchange{network: network, query: m.Questions[0].Name.String()}
 	c.mu.Lock()
 	c.log = append(c.log, e)
 	c.mu.Unlock()
@@ -227,29 +211,6 @@ func (c *counter) forward(network string, query []byte) ([]byte, error) {
 		}
 	}
 	return reply, nil
-}
-
-// setEDNSSize sets the UDP payload size in the OPT record of m, and adds the record when m has none.
-func setEDNSSize(m *dnsmessage.Message, size uint16) {
-	for i := range m.Additionals {
-		if m.Additionals[i].Header.Type == dnsmessage.TypeOPT {
-			m.Additionals[i].Header.Class = dnsmessage.Class(size)
-			return
-		}
-	}
-	var h dnsmessage.ResourceHeader
-	_ = h.SetEDNS0(int(size), dnsmessage.RCodeSuccess, false)
-	m.Additionals = append(m.Additionals, dnsmessage.Resource{Header: h, Body: &dnsmessage.OPTResource{}})
-}
-
-// ednsSize returns the UDP payload size in the OPT record of m, or 0 when m has none.
-func ednsSize(m *dnsmessage.Message) uint16 {
-	for _, a := range m.Additionals {
-		if a.Header.Type == dnsmessage.TypeOPT {
-			return uint16(a.Header.Class)
-		}
-	}
-	return 0
 }
 
 func readFrame(r io.Reader) ([]byte, error) {
@@ -313,22 +274,5 @@ func TestCounterTruncatesUDPAndKeepsTCPWhenAsked(t *testing.T) {
 	}
 	if tcp.Truncated || len(tcp.Answers) != 1 {
 		t.Errorf("tcp: TC %v, %d answers, want no TC and 1 SOA", tcp.Truncated, len(tcp.Answers))
-	}
-}
-
-func TestCounterSetsEDNSSizeWhenAsked(t *testing.T) {
-	g := startGateway(t)
-	plain := newCounter(t, "127.0.0.1", g.listeners.Addr())
-	sized := newCounter(t, "127.0.0.1", g.listeners.Addr(), withEDNSSize(512))
-	for _, c := range []*counter{plain, sized} {
-		if _, err := dnsQuery("udp", net.JoinHostPort("127.0.0.1", strconv.Itoa(c.port)), "beacon.example.", dnsmessage.TypeSOA); err != nil {
-			t.Fatalf("query: %v", err)
-		}
-	}
-	if got := plain.exchanges()[0].sentSize; got != 0 {
-		t.Errorf("default counter sent EDNS size %d, want the query unchanged", got)
-	}
-	if got := sized.exchanges()[0].sentSize; got != 512 {
-		t.Errorf("counter with withEDNSSize(512) sent EDNS size %d, want 512", got)
 	}
 }

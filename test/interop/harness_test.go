@@ -173,6 +173,24 @@ var resolvers = []resolver{
 	{name: "bind", image: bindImage, start: startBIND},
 }
 
+// resolverByName returns the row of the resolvers table with that name.
+func resolverByName(t *testing.T, name string) resolver {
+	t.Helper()
+	for _, r := range resolvers {
+		if r.name == name {
+			return r
+		}
+	}
+	t.Fatalf("the resolvers table has no row named %q", name)
+	return resolver{}
+}
+
+func TestResolversTableHoldsUnboundAndBIND(t *testing.T) {
+	for _, name := range []string{"unbound", "bind"} {
+		resolverByName(t, name)
+	}
+}
+
 // harnessConfig holds the options of newHarness.
 type harnessConfig struct {
 	lead     time.Duration
