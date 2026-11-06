@@ -94,35 +94,25 @@ func guideArgs(line, port string) []string {
 	return strings.Fields(strings.ReplaceAll(line, "15353", port))
 }
 
-func TestOperatorGuideLoopbackReachesVerifiedRead(t *testing.T) {
-	gatewayLine, digLine, getLine := loopbackCommands(t)
-	dir := t.TempDir()
-	gatewayBin := buildBinary(t, dir, "entropy53d")
-	cliBin := buildBinary(t, dir, "entropy53")
-	fake := newFakeUpstream(t)
-	port := freeLoopbackPort(t)
+// guideGateway is a running gateway process.
+type guideGateway struct {
+	cmd *exec.Cmd
+	// exited closes after exitErr holds the result of Wait.
+	exited  chan struct{}
+	exitErr error
+}
 
-	// The guide command reads the public relays. The test adds --upstream so that no real upstream receives a request.
-	args := append(guideArgs(gatewayLine, port)[1:], "--upstream", fake.URL)
-	gw := exec.Command(gatewayBin, args...)
-	stdout, err := gw.StdoutPipe()
+// startGuideGateway starts the binary with args and waits for the listening line.
+func startGuideGateway(t *testing.T, bin string, args []string) *guideGateway {
+	t.Helper()
+	g := &guideGateway{cmd: exec.Command(bin, args...), exited: make(chan struct{})}
+	stdout, err := g.cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Start(); err != nil {
+	if err := g.cmd.Start(); err != nil {
 		t.Fatalf("start the gateway: %v", err)
 	}
-	exited := make(chan error, 1)
-	go func() { exited <- gw.Wait() }()
-	t.Cleanup(func() {
-		select {
-		case <-exited:
-		default:
-			_ = gw.Process.Kill()
-			<-exited
-		}
-	})
-
 	listening := make(chan struct{})
 	go func() {
 		scanner := bufio.NewScanner(stdout)
@@ -133,32 +123,77 @@ func TestOperatorGuideLoopbackReachesVerifiedRead(t *testing.T) {
 				close(listening)
 			}
 		}
+		// Wait closes the pipe, so it runs after the scanner reads to the end of the output.
+		g.exitErr = g.cmd.Wait()
+		close(g.exited)
 	}()
+	t.Cleanup(func() {
+		select {
+		case <-g.exited:
+		default:
+			_ = g.cmd.Process.Kill()
+			<-g.exited
+		}
+	})
 	select {
 	case <-listening:
-	case err := <-exited:
-		t.Fatalf("the gateway exited before it listened: %v", err)
+	case <-g.exited:
+		t.Fatalf("the gateway exited before it listened: %v", g.exitErr)
 	case <-time.After(guideLimit):
 		t.Fatalf("no listening line within %s", guideLimit)
 	}
+	return g
+}
 
+// stop sends SIGTERM and requires exit code 0.
+func (g *guideGateway) stop(t *testing.T) {
+	t.Helper()
+	if err := g.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("send SIGTERM: %v", err)
+	}
+	select {
+	case <-g.exited:
+		if g.exitErr != nil {
+			t.Errorf("the gateway did not exit with code 0 after SIGTERM: %v", g.exitErr)
+		}
+	case <-time.After(guideLimit):
+		t.Fatalf("the gateway did not stop within %s of SIGTERM", guideLimit)
+	}
+}
+
+// runGuideDig runs the dig line of the guide and requires a TXT record in the answer.
+// It logs and returns when dig is not installed.
+func runGuideDig(t *testing.T, line, port string) {
+	t.Helper()
 	if _, err := exec.LookPath("dig"); err != nil {
 		t.Logf("dig is not installed, so the test skips the dig command: %v", err)
-	} else {
-		digArgs := guideArgs(digLine, port)
-		out, err := exec.Command(digArgs[0], append(digArgs[1:], "+short", "+time=5", "+tries=1")...).CombinedOutput()
-		if err != nil {
-			t.Fatalf("dig: %v\n%s", err, out)
-		}
-		if strings.TrimSpace(string(out)) == "" {
-			t.Errorf("dig printed no TXT record")
-		}
+		return
 	}
+	args := guideArgs(line, port)
+	out, err := exec.Command(args[0], append(args[1:], "+short", "+time=5", "+tries=1")...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("dig: %v\n%s", err, out)
+	}
+	if strings.TrimSpace(string(out)) == "" {
+		t.Errorf("dig printed no TXT record")
+	}
+}
 
-	getArgs := guideArgs(getLine, port)
+func TestOperatorGuideLoopbackReachesVerifiedRead(t *testing.T) {
+	gatewayLine, digLine, getLine := loopbackCommands(t)
+	dir := t.TempDir()
+	gatewayBin := buildBinary(t, dir, "entropy53d")
+	cliBin := buildBinary(t, dir, "entropy53")
+	fake := newFakeUpstream(t)
+	port := freeLoopbackPort(t)
+
+	// The guide command reads the public relays. The test adds --upstream so that no real upstream receives a request.
+	gw := startGuideGateway(t, gatewayBin, append(guideArgs(gatewayLine, port)[1:], "--upstream", fake.URL))
+	runGuideDig(t, digLine, port)
+
 	ctx, cancel := context.WithTimeout(context.Background(), guideLimit)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, cliBin, getArgs[1:]...).CombinedOutput()
+	out, err := exec.CommandContext(ctx, cliBin, guideArgs(getLine, port)[1:]...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("entropy53 get: %v\n%s", err, out)
 	}
@@ -170,16 +205,5 @@ func TestOperatorGuideLoopbackReachesVerifiedRead(t *testing.T) {
 			t.Errorf("get output does not hold the vector randomness %s:\n%s", v.Randomness, out)
 		}
 	}
-
-	if err := gw.Process.Signal(syscall.SIGTERM); err != nil {
-		t.Fatalf("send SIGTERM: %v", err)
-	}
-	select {
-	case err := <-exited:
-		if err != nil {
-			t.Errorf("the gateway did not exit with code 0 after SIGTERM: %v", err)
-		}
-	case <-time.After(guideLimit):
-		t.Fatalf("the gateway did not stop within %s of SIGTERM", guideLimit)
-	}
+	gw.stop(t)
 }
