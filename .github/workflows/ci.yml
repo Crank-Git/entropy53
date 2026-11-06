@@ -36,3 +36,29 @@ jobs:
       - uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.15.0
+
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ruby/setup-ruby@v1.336.0
+        with:
+          ruby-version: "3.4.12"
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13.18"
+      - run: gem install kramdown-rfc -v 1.7.43 --no-document
+      - run: pip install xml2rfc==3.35.0
+      - run: kramdown-rfc draft/draft-crank-drand-dns.md > draft/draft-crank-drand-dns.xml
+      # xml2rfc exits with code 1 on bad XML. A warning alone exits with code 0.
+      - run: xml2rfc draft/draft-crank-drand-dns.xml --text --html --path draft
+      # kramdown-rfc exits with code 0 when it cannot fetch a reference. It writes this marker instead.
+      - run: "! grep -F '*** BROKEN REFERENCE ***' draft/draft-crank-drand-dns.xml draft/draft-crank-drand-dns.txt"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: draft
+          if-no-files-found: error
+          path: |
+            draft/draft-crank-drand-dns.txt
+            draft/draft-crank-drand-dns.html

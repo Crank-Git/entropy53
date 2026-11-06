@@ -154,7 +154,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Internet-Draft</h1>
-<p class="meta">Epic 6: Internet-Draft &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 6: Internet-Draft &nbsp; <span class="badge">built</span></p>
 <h3 id="internet-draft-purpose">Purpose</h3>
 <p>This feature set writes the wire format and its rules as an Internet-Draft. Another person can then build a compatible gateway or client from the draft alone. Version 1 keeps the draft in the repository. Submission stays a maintainer decision.</p>
 <h3 id="internet-draft-user-stories">User stories</h3>
@@ -219,14 +219,11 @@ body.rv-open .layout { padding-right:21rem; }
 <h4 id="internet-draft-how-the-maintainer-decides-on-submission">How the maintainer decides on submission</h4>
 <div class="diagram"><pre class="mermaid">flowchart TD
   A[Draft is complete] --&gt; B[Maintainer reads the rendered text]
-  B --&gt; C[Maintainer supplies the author block]
-  C --&gt; D{Submit to the IETF?}
+  B --&gt; D{Submit to the IETF?}
   D --&gt;|no| E[Draft stays in the repository]
   D --&gt;|yes| F[Maintainer submits by hand]</pre></div>
 <ol>
 <li>The maintainer reads the rendered text.
-</li>
-<li>The maintainer supplies the author block.
 </li>
 <li>The maintainer decides whether to submit.
 </li>
@@ -293,10 +290,7 @@ body.rv-open .layout { padding-right:21rem; }
 <h3 id="internet-draft-out-of-scope">Out of scope</h3>
 <p>Submission to the IETF, working group adoption, a media type and an IANA registry.</p>
 <h3 id="internet-draft-open-questions" class="callout-h">Open questions</h3>
-<ul>
-<li>The author name and the contact address. The maintainer supplies these before Epic 6 starts.
-</li>
-</ul><nav class="pager">
+<p>None. The maintainer supplied the author name and the contact address.</p><nav class="pager">
 <a href="feature-resolver-interop.html">&larr; Feature: Resolver interop and release</a>
 <span></span>
 </nav>

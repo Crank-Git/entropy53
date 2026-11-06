@@ -39,7 +39,7 @@ That statement holds after publication. This feature adds the rules for the time
 
 ### Round records
 
-- FR-answers-10 — The gateway returns exactly one TXT record for a round name of a round that it holds or can fetch.
+- FR-answers-10 — The gateway returns exactly one TXT record for a round name of a round that it holds or can fetch, except round 1 of `default`, which the record body cannot hold (FR-record-8).
 - FR-answers-11 — The TTL of that record is 86400 seconds.
 - FR-answers-12 — The gateway returns NODATA for a round name with a round number above the current round.
 - FR-answers-13 — The TTL of that NODATA answer is `clamp(ceil(RoundTime(n) - now), 1, 300)`.
@@ -81,6 +81,7 @@ That statement holds after publication. This feature adds the rules for the time
 - FR-answers-37 — The gateway returns NOTIMP for an opcode other than QUERY.
 - FR-answers-38 — The gateway returns REFUSED for a class other than IN.
 - FR-answers-46 — The gateway returns REFUSED for a QTYPE of AXFR or IXFR.
+- FR-answers-47 — The gateway returns BADVERS for a query with an OPT record of an EDNS version above 0, with an OPT record of version 0 and no answer record (RFC 6891 section 6.1.3).
 
 ### Rate limit
 

@@ -70,6 +70,7 @@ Version 1 is a self-hosted reference implementation. Version 1 also includes an 
 | verify | verb | To check a round against the public key from the registry. | validate, authenticate |
 | gateway | noun | The authoritative DNS server that this project builds, binary `entropy53d`. | server, node, relay |
 | operator | noun | A person who runs a gateway. | admin, host |
+| listener | noun | The UDP or TCP socket on which a gateway receives queries. | server, endpoint |
 | zone | noun | The DNS domain that a parent delegates to a gateway, for example `beacon.example`. | domain |
 | upstream | noun | A public drand HTTP relay from which the gateway fetches rounds. | origin, backend, source |
 | fetch | verb | For a gateway, to get a round from an upstream over HTTP. | pull, download |
@@ -98,7 +99,7 @@ Version 1 is a self-hosted reference implementation. Version 1 also includes an 
 
 ## Goals
 
-1. A client reads and verifies any published round of all three chains through an unmodified resolver.
+1. A client reads and verifies any published round of all three chains through an unmodified resolver. One round is an exception: round 1 of `default` has a 32-byte previous signature, which the record body cannot hold, so the gateway does not serve it.
 2. A gateway never returns a round that it has not verified.
 3. A client that polls a pinned round early receives that round within 5 seconds after its round time, through a resolver with default settings. An early query never extends this delay, because each negative answer ends at or before the round time, rounded up to one whole second.
 4. A second query for a published round through a resolver sends no query to the gateway.
@@ -430,9 +431,9 @@ The planner made these decisions. The user did not state them.
 
 ## Risks & open questions
 
-No item blocks approval. The first item needs an answer before Epic 6 starts.
+No item blocks approval.
 
-1. **Open: draft author block.** The Internet-Draft needs an author name and a contact address. The maintainer supplies these. The address is public and permanent if the draft is submitted.
+1. **Answered: draft author block.** The maintainer supplied the author name Christian Crank and the contact address info@nocturnaltendenciesllc.com. The author block has no organization. The address is public and permanent if the draft is submitted.
 2. **Resolver limits on a negative TTL.** A resolver with a raised minimum negative TTL can delay a pinned round. Unbound `cache-min-negative-ttl` defaults to 0, so default Unbound is safe. The interop tests measure this on default Unbound and default BIND. Goal 3 applies to default settings only.
 3. **A spoofed answer in a resolver cache.** An off-path attacker can put junk in a resolver cache. The client library rejects the junk, but the same resolver keeps returning it until its TTL ends. The client library has no fallback, by decision. The caller can select another resolver. DNSSEC would reduce this risk and is out of v1 scope.
 4. **`github.com/miekg/dns` end of life.** Its README states "At some point this repo will be archived." Keep the library behind `internal/gateway/` and `client/`. This limit keeps a later move to the successor small.
@@ -507,3 +508,5 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 - 2026-11-06: The CLI exits with code 1 when a write to standard output fails, so a script does not take lost output for success.
 - 2026-11-06: The interop workflow runs on pull requests into `dev` and `main`, so that a promotion also runs the suite before a release tag.
 - 2026-11-06: The TCP retry test uses a test proxy that sets the TC bit, because a `default` answer is smaller than the 512-byte floor of `Msg.Truncate`.
+- 2026-11-06: The maintainer ruled on #46. The record layout stays, and round 1 of `default` is not served, because its previous signature has 32 bytes. Goal 1, FR-record-8 and the Internet-Draft state the exception. The maintainer also supplied the Internet-Draft author block.
+- 2026-11-06: The gateway answers an EDNS version above 0 with BADVERS, as RFC 6891 requires.
