@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "pluginVersion": "0.17.0",
+  "forge": {
+    "type": "github",
+    "host": "github.com",
+    "owner": "Crank-Git",
+    "repo": "entropy53",
+    "interface": "cli"
+  },
+  "concurrency": 3,
+  "batchSize": 4,
+  "runLength": { "mode": "backlog" },
+  "prGranularity": "batch",
+  "prAuthority": "autonomous",
+  "planReview": false,
+  "reviewWipLimit": 2,
+  "review": { "when": "end-of-session" },
+  "deploy": { "mode": "none" },
+  "docsMcp": { "offered": ["context7"], "installed": [], "marketplacesAdded": [], "declined": true, "restartPending": false },
+  "practices": {
+    "tdd": true,
+    "ddd": true,
+    "e2e": "none",
+    "coverage": null,
+    "commitStyle": "conventional",
+    "docs": "public-api"
+  },
+  "notes": "The operator chose to rely on auto permission mode instead of git and gh allow-list entries. Three workers is the operator's machine limit. The spec interop tests in Epic 5 are the end-to-end suite."
+}
