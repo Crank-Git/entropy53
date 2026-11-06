@@ -196,6 +196,8 @@ A decoder MUST reject a body whose length differs from the exact length for the 
 A decoder MUST check the length before it reads any field.
 A decoder MUST reject a version other than 0x01.
 A decoder MUST reject a round number below 1 or above 2^53.
+The version check and the round number check come after the length check, in either order.
+The order of those two checks changes only which failure a decoder reports.
 
 ## Base64 Text
 
@@ -211,7 +213,12 @@ The text of `default` needs two strings.
 A decoder MUST concatenate all character-strings of one TXT record before it decodes the base64 text.
 A decoder MUST NOT rely on a split at octet 255, and MUST accept a split at any position.
 A decoder MUST ignore a zero-length character-string.
-A decoder MUST reject text that has white space, a line break, missing padding, or non-zero trailing bits.
+A decoder MUST reject the concatenated text in each of these cases:
+
+* The text has a character outside the standard alphabet, and the padding character `=` is the only extra character allowed.
+  This includes a space, a tab, a carriage return and a line feed.
+* The text has padding that is missing, too long, or not at the end.
+* The last base64 character has non-zero bits that the decoded bytes do not use.
 
 Example.
 The round record for round 1000 of `quicknet` is this single character-string:
@@ -231,7 +238,9 @@ That round verifies in drand, but the layout above cannot hold it.
 The layout stays as it is, and this version does not serve that round.
 For the round name of round 1 of `default`, a gateway MUST return SERVFAIL.
 The label `1` stays valid, so a gateway MUST NOT return NXDOMAIN.
-A client MUST reject a record body for round 1 of `default`, because its length is not 201 bytes.
+A record body of 137 bytes for round 1 fails the length check of {{record-body}}.
+A record body of 201 bytes that claims round 1 passes the length check, but it cannot verify, because the previous signature of that round has 32 bytes.
+The signature check of {{check-record}} rejects such a body.
 
 ## Version
 
@@ -386,7 +395,8 @@ For each TXT record, a client does these steps:
    If the signature does not verify, the record fails.
 5. Compute `randomness` as the SHA-256 hash of the signature.
 
-A client MUST verify the signature before it uses any value from the record body.
+A client MAY use the fields of the record body to run the checks above.
+A client MUST NOT return a value from the record, or act on one, until the signature verifies.
 A client MUST compute `randomness` from the signature.
 A client MUST compute `randomness` as above and MUST NOT read `randomness` from a gateway or from an upstream.
 A client MUST NOT return a round that failed verification.
@@ -499,7 +509,118 @@ No chain is retired in this version.
 
 # Security Considerations {#security}
 
-This section is not yet written.
+## Security Property
+
+A client accepts a round only if the BLS signature verifies against a public key that the client holds ({{client-procedure}}).
+The gateway, the resolver and the network are therefore trusted for availability only, and not for integrity.
+Two parties are trusted: the drand threshold of nodes that signs each round, and the registry of public keys in the client.
+A client that follows this document cannot accept a forged round from any other party.
+
+## Forged Rounds
+
+A gateway can return a forged signature, or a valid round at the wrong round name.
+A forged signature fails verification.
+A valid round with another round number fails the comparison of the round number in the record body with the requested number ({{check-record}}).
+In both cases the client reports that no record verifies, and it returns no round.
+
+## Withheld Rounds
+
+A gateway, a resolver or any party on the path can withhold a round.
+A client sees a negative answer, a SERVFAIL, or a timeout.
+No signature can prove that a round was withheld, because a missing answer carries no signature.
+A client therefore reports "withheld" when a negative answer arrives after the round time plus the grace time ({{negative-response}}).
+A client reports a transport failure for a SERVFAIL or a timeout.
+These outcomes are a loss of availability and nothing more.
+The caller can ask another resolver or another gateway.
+This document gives no way to force an answer.
+
+## Selection among Latest Rounds
+
+A gateway can select among recent rounds at a latest name.
+Every round that the gateway returns is a real round with a valid signature.
+A client accepts the round unless it is stale ({{client-procedure}}).
+A gateway can therefore choose the value that a client sees, within the last 3 rounds.
+A pinned round has exactly one valid value, so a gateway has no such choice.
+A draw MUST use a pinned round and MUST NOT use a latest name.
+The latest name has no cryptographic property that a round name lacks.
+
+## Pinned Rounds in a Draw
+
+A draw is fair only when the organizer pins the round number before the round time.
+An organizer that takes the round number after the round time can already read that round, and can select a favorable number.
+To pin a round for a draw, an organizer does these steps in order:
+
+1. Select the draw time.
+2. Compute the lowest round number with a round time at or after the draw time.
+3. Announce that round number before its round time.
+4. Read the round after its round time.
+
+## Spoofed Records in a Resolver Cache
+
+An off-path attacker can try to place a false record in the cache of a resolver.
+A false record fails verification, so the client rejects it and reports that no record verifies.
+The false record can stay in the cache until its TTL ends, and the client cannot obtain the true round from that resolver in that time.
+The same applies to a false negative answer: the client reports a negative outcome until its TTL ends.
+The caller can select another resolver.
+This document does not require DNSSEC, because the signature of the round already gives integrity.
+DNSSEC would add availability protection only.
+
+A bad upstream can send junk to a gateway.
+A gateway verifies a round before it keeps or serves the round, so junk never reaches a resolver cache through the gateway ({{answer-rules}}).
+
+## Client Clock
+
+A client reads a clock for one purpose.
+The clock selects between "not published" and "withheld" in a negative response, and it decides when a latest round is stale.
+The clock has no effect on whether a signature verifies.
+An attacker that moves the clock of a client can therefore turn "withheld" into "not published", or hide a stale latest round.
+The attacker cannot make a client accept a false round.
+A client that needs a correct outcome SHOULD keep an accurate clock.
+A client MUST NOT read a clock when it verifies a signature.
+
+## Early Reads
+
+A round is public at its round time, from every drand relay.
+A gateway has no advantage over any other reader.
+A gateway cannot read a round before its round time.
+
+## Reflection and Floods
+
+A reflection attacker can send queries to a gateway with a spoofed source address.
+A UDP answer is larger than the query, so the gateway amplifies the traffic to the victim.
+The answer for `latest.default.b.example` with a query of 42 bytes and no OPT record is 324 bytes, a gain of about 7.7.
+Other names give a gain of 4 to 8 times.
+A gateway SHOULD limit its UDP responses for each source prefix, as {{answer-rules}} specifies.
+The TC bit makes a real client retry over TCP, where no spoofing is possible.
+
+A query flood for random old round numbers needs an on-demand fetch from an upstream.
+A gateway SHOULD keep a budget for such fetches and answer the excess with SERVFAIL, so that the store and the upstreams stay within limits.
+A query flood for random future round numbers costs arithmetic only, because the gateway sends no upstream request for them.
+
+## Query Privacy
+
+The name of a query holds the chain and the round number.
+A resolver, a gateway and any observer on the path can read it.
+They learn which rounds a client reads, and so which draw a client follows.
+This document gives no protection against that observation.
+A client that needs privacy can send its queries through a channel that hides them, such as a resolver with encrypted transport.
+Such a channel is outside this document.
+
+## Trust in drand
+
+Every client of every chain accepts any value that the drand threshold signs.
+If a threshold of nodes is compromised, they can sign any value and all clients accept it.
+This is an assumption of drand, and this document does not mitigate it.
+
+## What This Document Does Not Claim
+
+This document does not claim any of these:
+
+* A round is available.
+  Any party on the path can withhold it.
+* A resolver respects a TTL.
+* The reader of a round stays hidden.
+* The design resists an attack on drand itself.
 
 # IANA Considerations {#iana}
 
@@ -509,4 +630,93 @@ This document has no IANA actions.
 
 # Test Vectors {#vectors}
 
-This appendix is not yet written.
+This appendix holds one vector for each chain.
+Each vector is a real round, with the record that a gateway serves for it.
+A vector lets an implementer test a decoder and a gateway.
+
+## Format of a Vector {#vector-format}
+
+A vector is a fenced block with the info string `vector`.
+A rendered text shows no fence.
+In a rendered text, a vector starts at its `beacon_id` line and ends with the last continuation line of its `randomness` value.
+A page header, a page footer or a blank line inside a vector is not part of the vector.
+A block holds lines in the form `key: value`.
+The keys come in this order:
+
+| Key | Meaning |
+|---|---|
+| `beacon_id` | The beacon ID of the chain. |
+| `round` | The round number, in decimal. |
+| `signature` | The signature, in hexadecimal. |
+| `previous_signature` | The previous signature, in hexadecimal. The value is empty for a chain with no previous signature. |
+| `txt` | One character-string of the round record, in base64 text. |
+| `randomness` | The SHA-256 hash of the signature, in hexadecimal. |
+
+A line that starts with white space continues the value of the line above it.
+A continuation line is indented by two more spaces than a key line.
+A line break and the white space that starts a continuation line are not part of a value.
+To read a value, join the first line and every continuation line, with no separator.
+A key with nothing after the colon has an empty value, except `txt`, whose value is never empty.
+
+The key `txt` occurs once for each character-string, in the order of the record.
+A decoder concatenates the values of all `txt` keys of one vector, as {{record-body}} specifies.
+The vector of `default` has two character-strings, of 255 and 13 characters, so it has two `txt` lines.
+
+A test suite MAY hold the same fields in another container, for example a JSON object with the `txt` values as an array of strings.
+The values in the container equal the values in this appendix.
+
+All three vectors are for round 1000.
+
+## `quicknet` {#vec-quicknet}
+
+~~~ vector
+beacon_id: quicknet
+round: 1000
+signature: b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b1957
+  6350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39
+previous_signature:
+txt: AQAAAAAAAAPotEZ5uaWa8uyHaxprGtUuqbFhX8OYKxlXY1D5
+  NEfLESXjQrc6jdK6y+R+S2tj7V45
+randomness: fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff
+  3cd603d930e54fdd
+~~~
+
+## `default` {#vec-default}
+
+~~~ vector
+beacon_id: default
+round: 1000
+signature: 99bf96de133c3d3937293cfca10c8152b18ab2d034ccecf1
+  15658db324d2edc00a16a2044cd04a8a38e2a307e5ecff35
+  11315be8d282079faf24098f283e0ed2c199663b334d2e84
+  c55c032fe469b212c5c2087ebb83a5b25155c3283f5b79ac
+previous_signature: af0d93299a363735fe847f5ea241442c65843dc1bd3a7b79
+  646b3b10072e908bf034d35cd69d378e3341f139100cd4cd
+  03030399864ef8803a5a4f5e64fccc20bbae36d1ca22a6dd
+  c43d2630c41105e90598fab11e5c7456df3925d4b577b113
+txt: AQAAAAAAAAPomb+W3hM8PTk3KTz8oQyBUrGKstA0zOzxFWWN
+  syTS7cAKFqIETNBKijjiowfl7P81ETFb6NKCB5+vJAmPKD4O
+  0sGZZjszTS6ExVwDL+RpshLFwgh+u4OlslFVwyg/W3msrw2T
+  KZo2NzX+hH9eokFELGWEPcG9Ont5ZGs7EAcukIvwNNNc1p03
+  jjNB8TkQDNTNAwMDmYZO+IA6Wk9eZPzMILuuNtHKIqbdxD0m
+  MMQRBekFmPqxHlx
+txt: 0Vt85JdS1d7ET
+randomness: a40d3e0e7e3c71f28b7da2fd339f47f0bcf10910309f5253
+  d7c323ec8cea3212
+~~~
+
+## `evmnet` {#vec-evmnet}
+
+~~~ vector
+beacon_id: evmnet
+round: 1000
+signature: 06fd5996329504d3a56b482d9222bf7205857d0a9559ddd2
+  16ca31a286f6a8cc0a120f021aac2f13553fb164f62bc3a5
+  ca32c76dea88a777b39bcf3cac5fdbd6
+previous_signature:
+txt: AQAAAAAAAAPoBv1ZljKVBNOla0gtkiK/cgWFfQqVWd3SFsox
+  oob2qMwKEg8CGqwvE1U/sWT2K8OlyjLHbeqIp3ezm888rF/b
+  1g==
+randomness: 0e6745667465a6f9dce5d5f994656955080be14c469ff17f
+  c4fc588c925a8504
+~~~

@@ -70,6 +70,7 @@ Version 1 is a self-hosted reference implementation. Version 1 also includes an 
 | verify | verb | To check a round against the public key from the registry. | validate, authenticate |
 | gateway | noun | The authoritative DNS server that this project builds, binary `entropy53d`. | server, node, relay |
 | operator | noun | A person who runs a gateway. | admin, host |
+| listener | noun | The UDP or TCP socket on which a gateway receives queries. | server, endpoint |
 | zone | noun | The DNS domain that a parent delegates to a gateway, for example `beacon.example`. | domain |
 | upstream | noun | A public drand HTTP relay from which the gateway fetches rounds. | origin, backend, source |
 | fetch | verb | For a gateway, to get a round from an upstream over HTTP. | pull, download |

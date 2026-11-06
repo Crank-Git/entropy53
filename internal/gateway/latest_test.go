@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"log/slog"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -147,5 +148,43 @@ func TestLatestEncodeErrorReturnsSERVFAIL(t *testing.T) {
 
 	if !strings.Contains(logs.String(), "latest record encode failed") {
 		t.Errorf("log = %q, want a line about the encode failure", logs.String())
+	}
+}
+
+// TestDefaultLatestAnswerIs324BytesFor42ByteQuery measures the wire sizes that the Internet-Draft states
+// for the reflection gain. The query has no OPT record, as an old stub resolver sends it.
+func TestDefaultLatestAnswerIs324BytesFor42ByteQuery(t *testing.T) {
+	v := vectorOf(t, "default")
+	cfg := testConfig(t)
+	cfg.Zone = "b.example."
+	cfg.Chains = []chain.Chain{chain.Default}
+	addr := startRoundHandler(t, cfg, chain.Default.RoundTime(v.Round).Add(time.Second), latestSource(roundOf(t, v)))
+	q := new(dns.Msg)
+	q.SetQuestion("latest.default.b.example.", dns.TypeTXT)
+	q.RecursionDesired = false
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	conn, err := net.Dial("udp", addr)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := conn.SetDeadline(time.Now().Add(dnsWait)); err != nil {
+		t.Fatalf("SetDeadline: %v", err)
+	}
+	if _, err := conn.Write(wire); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	buf := make([]byte, 4096)
+	n, err := conn.Read(buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+
+	if len(wire) != 42 || n != 324 {
+		t.Errorf("query = %d bytes, answer = %d bytes, want 42 and 324", len(wire), n)
 	}
 }
