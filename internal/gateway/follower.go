@@ -11,7 +11,7 @@ import (
 const (
 	// followDelay is the time after a round time at which a follower starts a fetch (FR-upstream-17).
 	followDelay = 250 * time.Millisecond
-	// retryDelay is the time a follower waits before it retries a fetch that returned an older round (FR-upstream-18).
+	// retryDelay is the time a follower waits before it retries a fetch that returned an older round or failed (FR-upstream-18).
 	retryDelay = 500 * time.Millisecond
 )
 
@@ -22,7 +22,7 @@ func (u *Upstreams) Latest(c chain.Chain) (chain.Round, bool) {
 }
 
 // Follow runs one follower for each chain in chains and blocks until ctx ends.
-// A follower spends no on-demand budget and joins no flight (FR-upstream-16).
+// A follower spends no on-demand budget and joins no flight.
 func (u *Upstreams) Follow(ctx context.Context, chains []chain.Chain) {
 	var wg sync.WaitGroup
 	for _, c := range chains {
@@ -78,6 +78,8 @@ func (u *Upstreams) follow(ctx context.Context, c chain.Chain) {
 
 // followOnce fetches the latest round of c and records it.
 // It reports whether the fetched round number is at least k.
+// A verified round below k moves the preferred upstream to the next one,
+// so the retry and later fetches do not return to an upstream that is stuck on an older round.
 // NotPublished counts as a failure, because a follower waits until after the round time.
 func (u *Upstreams) followOnce(ctx context.Context, c chain.Chain, k uint64) bool {
 	r, status := u.fetchPath(ctx, c, "latest", 0)
@@ -85,7 +87,11 @@ func (u *Upstreams) followOnce(ctx context.Context, c chain.Chain, k uint64) boo
 		return false
 	}
 	u.store.advanceLatest(c.BeaconID, r)
-	return r.Number >= k
+	if r.Number < k {
+		u.skipStart(c.ChainHash)
+		return false
+	}
+	return true
 }
 
 // wait blocks for d and reports false when ctx ends first.

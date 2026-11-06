@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -255,6 +256,44 @@ func TestBody5000BytesReturnsUnavailable(t *testing.T) {
 
 	if status != Unavailable {
 		t.Errorf("status = %v, want Unavailable", status)
+	}
+}
+
+// countingBody supplies 1 MiB of spaces and counts the bytes that a reader takes.
+type countingBody struct{ read atomic.Int64 }
+
+func (b *countingBody) Read(p []byte) (int, error) {
+	const size = 1 << 20
+	left := size - int(b.read.Load())
+	if left <= 0 {
+		return 0, io.EOF
+	}
+	n := min(len(p), left)
+	for i := range n {
+		p[i] = ' '
+	}
+	b.read.Add(int64(n))
+	return n, nil
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestBodyReadStopsAtLimit(t *testing.T) {
+	body := &countingBody{}
+	u := NewUpstreams(Config{Upstreams: []string{"http://upstream.invalid"}})
+	u.client = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body)}, nil
+	})}
+
+	_, status := u.fetchRound(context.Background(), chain.Quicknet, 5)
+
+	if status != Unavailable {
+		t.Errorf("status = %v, want Unavailable", status)
+	}
+	if got := body.read.Load(); got > maxBody {
+		t.Errorf("bytes read = %d, want at most %d", got, maxBody)
 	}
 }
 

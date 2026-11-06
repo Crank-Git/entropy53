@@ -22,16 +22,36 @@ func onDemandSetup(t *testing.T, rate int, urls ...string) (*Upstreams, *fakeClo
 }
 
 // blockUntil returns a handler that waits for release to close, and a function that closes it once.
+// The caller registers the function with t.Cleanup after it creates each server.
+// Cleanups run last in, first out, so the release then runs before srv.Close,
+// which waits for a handler that is still blocked.
 func blockUntil(t *testing.T, v vector) (http.HandlerFunc, func()) {
 	t.Helper()
 	release := make(chan struct{})
 	var once sync.Once
 	closeRelease := func() { once.Do(func() { close(release) }) }
-	t.Cleanup(closeRelease)
 	return func(w http.ResponseWriter, r *http.Request) {
 		<-release
 		serveRound(v)(w, r)
 	}, closeRelease
+}
+
+// waitTimersWithin waits until n timers are pending and reports whether they are.
+// A caller that never joins a flight arms no timer, so an unbounded wait would hang until the test timeout.
+func waitTimersWithin(t *testing.T, clk *fakeClock, n int) bool {
+	t.Helper()
+	ready := make(chan struct{})
+	go func() {
+		clk.waitTimers(n)
+		close(ready)
+	}()
+	select {
+	case <-ready:
+		return true
+	case <-time.After(5 * time.Second):
+		t.Errorf("fewer than %d timers are pending after 5 seconds", n)
+		return false
+	}
 }
 
 type result struct {
@@ -52,7 +72,10 @@ func TestConcurrentRoundsSendOneRequest(t *testing.T) {
 	v := vectorOf(t, "quicknet")
 	var clk *fakeClock
 	up := newFakeUpstream(t, func(w http.ResponseWriter, r *http.Request) {
-		clk.waitTimers(100)
+		if !waitTimersWithin(t, clk, 100) {
+			fail500(w, r)
+			return
+		}
 		serveRound(v)(w, r)
 	})
 	var u *Upstreams
@@ -104,6 +127,21 @@ func TestRateZeroAllowsNoFetch(t *testing.T) {
 	}
 }
 
+func TestRoundZeroSpendsNoBudgetAndSendsNoRequest(t *testing.T) {
+	up := newFakeUpstream(t, fail500)
+	u, _, _ := onDemandSetup(t, 1, up.url())
+
+	_, st := u.Round(context.Background(), chain.Quicknet, 0)
+	if st != Unavailable || up.hits.Load() != 0 {
+		t.Fatalf("round 0 status = %v, requests = %d, want Unavailable, 0", st, up.hits.Load())
+	}
+	u.Round(context.Background(), chain.Quicknet, 5)
+
+	if got := up.hits.Load(); got != 1 {
+		t.Errorf("requests for round 5 = %d, want 1, because round 0 spent no token", got)
+	}
+}
+
 func TestBudgetRefillsWithTime(t *testing.T) {
 	up := newFakeUpstream(t, fail500)
 	u, clk, _ := onDemandSetup(t, 1, up.url())
@@ -120,9 +158,10 @@ func TestBudgetRefillsWithTime(t *testing.T) {
 
 func TestWaitEndsAtTimeoutTimesUpstreamCount(t *testing.T) {
 	v := vectorOf(t, "quicknet")
-	handler, _ := blockUntil(t, v)
+	handler, release := blockUntil(t, v)
 	a := newFakeUpstream(t, handler)
 	b := newFakeUpstream(t, handler)
+	t.Cleanup(release)
 	u, clk, _ := onDemandSetup(t, 1, a.url(), b.url())
 
 	done := asyncRound(context.Background(), u, v.Round)
@@ -146,8 +185,9 @@ func TestWaitEndsAtTimeoutTimesUpstreamCount(t *testing.T) {
 
 func TestWaitEndsAtCallerDeadline(t *testing.T) {
 	v := vectorOf(t, "quicknet")
-	handler, _ := blockUntil(t, v)
+	handler, release := blockUntil(t, v)
 	up := newFakeUpstream(t, handler)
+	t.Cleanup(release)
 	u, clk, _ := onDemandSetup(t, 1, up.url())
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -164,13 +204,17 @@ func TestCanceledFirstCallerDoesNotEndOtherWait(t *testing.T) {
 	v := vectorOf(t, "quicknet")
 	handler, release := blockUntil(t, v)
 	up := newFakeUpstream(t, handler)
+	t.Cleanup(release)
 	u, clk, _ := onDemandSetup(t, 1, up.url())
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	first := asyncRound(ctx, u, v.Round)
 	clk.waitTimers(1)
 	second := asyncRound(context.Background(), u, v.Round)
-	clk.waitTimers(2)
+	if !waitTimersWithin(t, clk, 2) {
+		return
+	}
 	cancel()
 	if res := <-first; res.st != Unavailable {
 		t.Errorf("first status = %v, want Unavailable", res.st)
@@ -261,6 +305,7 @@ func TestJoinSpendsNoBudget(t *testing.T) {
 	v := vectorOf(t, "quicknet")
 	handler, release := blockUntil(t, v)
 	up := newFakeUpstream(t, handler)
+	t.Cleanup(release)
 	u, clk, _ := onDemandSetup(t, 1, up.url())
 
 	results := []<-chan result{asyncRound(context.Background(), u, v.Round)}

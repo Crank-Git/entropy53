@@ -25,7 +25,8 @@ const (
 	Found Status = iota
 	// NotPublished means the round does not exist yet.
 	NotPublished
-	// Unavailable means no upstream gave a usable answer.
+	// Unavailable means the gateway has no round to give. No upstream gave a usable answer,
+	// the budget is empty, the context ended, the wait limit passed, or RoundAt returned an error.
 	Unavailable
 )
 
@@ -33,7 +34,7 @@ const (
 type Source interface {
 	// Round returns round n of chain c.
 	Round(ctx context.Context, c chain.Chain, n uint64) (chain.Round, Status)
-	// Latest returns the newest round of c that the gateway holds.
+	// Latest returns the highest round of c that a follower verified.
 	Latest(c chain.Chain) (chain.Round, bool)
 }
 
@@ -51,7 +52,8 @@ type Config struct {
 	// Rate is the number of on-demand fetches per second that the gateway allows (FR-upstream-13).
 	// A Rate of 0 allows none.
 	Rate int
-	// Log receives one line per upstream failure. A nil Log selects slog.Default.
+	// Log receives one line per upstream failure, discarded round and follower event.
+	// A nil Log selects slog.Default.
 	Log *slog.Logger
 }
 
@@ -178,6 +180,13 @@ func (u *Upstreams) setStart(chainHash string, idx int) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.preferred[chainHash] = idx
+}
+
+// skipStart moves the preferred upstream of a chain to the next one in the list.
+func (u *Upstreams) skipStart(chainHash string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.preferred[chainHash] = (u.preferred[chainHash] + 1) % len(u.upstreams)
 }
 
 // get requests public/label from one upstream and decodes the answer. It does not verify the round.

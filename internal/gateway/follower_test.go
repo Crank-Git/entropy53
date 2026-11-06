@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -10,6 +12,9 @@ import (
 	"time"
 
 	"github.com/Crank-Git/entropy53/chain"
+	"github.com/drand/drand/v2/common"
+	"github.com/drand/drand/v2/crypto"
+	"github.com/drand/kyber/util/random"
 )
 
 var _ Source = (*Upstreams)(nil)
@@ -331,5 +336,90 @@ func TestCanceledContextEndsFollow(t *testing.T) {
 	case <-returned:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Follow did not return after the context ended")
+	}
+}
+
+// signingChain returns a copy of quicknet with a test key, and a function that serves a signed round.
+// The real vector file holds one round for each chain, and these tests need a second round.
+// The test signs with the drand library, so the gateway still verifies against a public key.
+func signingChain(t *testing.T) (chain.Chain, func(n uint64) string) {
+	t.Helper()
+	scheme, err := crypto.SchemeFromName(chain.Quicknet.SchemeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret := scheme.KeyGroup.Scalar().Pick(random.New())
+	pub, err := scheme.KeyGroup.Point().Mul(secret, nil).MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := chain.Quicknet
+	c.PublicKey = pub
+	return c, func(n uint64) string {
+		sig, err := scheme.AuthScheme.Sign(secret, scheme.DigestBeacon(&common.Beacon{Round: n}))
+		if err != nil {
+			t.Errorf("sign round %d: %v", n, err)
+		}
+		return fmt.Sprintf(`{"round":%d,"signature":%q}`, n, hex.EncodeToString(sig))
+	}
+}
+
+func TestOlderRoundMovesPreferredToNextUpstream(t *testing.T) {
+	v := vectorOf(t, "quicknet")
+	first := newFakeUpstream(t, serveRound(v))
+	second := newFakeUpstream(t, serveRound(v))
+	u := NewUpstreams(Config{Upstreams: []string{first.url(), second.url()}})
+	hash := chain.Quicknet.ChainHash
+
+	if u.followOnce(context.Background(), chain.Quicknet, v.Round+1) {
+		t.Fatal("followOnce reached a round above the answer")
+	}
+	if got := u.start(hash); got != 1 {
+		t.Errorf("preferred after the first answer = %d, want 1", got)
+	}
+	u.followOnce(context.Background(), chain.Quicknet, v.Round+1)
+	if got := u.start(hash); got != 0 {
+		t.Errorf("preferred after the second answer = %d, want 0", got)
+	}
+	if got, ok := u.Latest(chain.Quicknet); !ok || got.Number != v.Round {
+		t.Errorf("Latest = %d, %v, want %d, true", got.Number, ok, v.Round)
+	}
+}
+
+func TestFollowerRecoversFromUpstreamStuckOnOlderRound(t *testing.T) {
+	c, sign := signingChain(t)
+	var clk *fakeClock
+	stale := newFakeUpstream(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(sign(1000)))
+	})
+	healthy := newFakeUpstream(t, func(w http.ResponseWriter, _ *http.Request) {
+		n, err := c.RoundAt(clk.Now())
+		if err != nil {
+			t.Errorf("round at clock time: %v", err)
+		}
+		_, _ = w.Write([]byte(sign(n)))
+	})
+	logs := &logBuffer{}
+	u := NewUpstreams(Config{Upstreams: []string{stale.url(), healthy.url()}, Log: slog.New(slog.NewTextHandler(logs, nil))})
+	clk = newFakeClock(quicknetStart(1001))
+	u.clock = clk
+	rig := &followRig{u: u, clk: clk, logs: logs, done: make(chan struct{})}
+	rig.run(t, []chain.Chain{c})
+
+	rig.step()
+	rig.clk.waitTimers(1)
+	rig.step()
+	rig.clk.waitTimers(1)
+
+	if got, ok := u.Latest(c); !ok || got.Number != 1001 {
+		t.Errorf("Latest = %d, %v, want 1001, true", got.Number, ok)
+	}
+	if got := count(logs, "follower behind"); got != 0 {
+		t.Errorf("behind lines = %d, want 0", got)
+	}
+	rig.step()
+	rig.clk.waitTimers(1)
+	if stale.hits.Load() != 1 || healthy.hits.Load() != 2 {
+		t.Errorf("hits = %d, %d, want 1, 2", stale.hits.Load(), healthy.hits.Load())
 	}
 }
