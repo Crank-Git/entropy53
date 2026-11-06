@@ -25,7 +25,7 @@ This feature set proves the design on real resolver software. The main claims in
 - FR-interop-3 — The interop tests run against BIND in its default configuration, plus the static-stub zone setting.
 - FR-interop-4 — The gateway under test takes a clock with a fixed offset, so that a vector round can be in the future.
 - FR-interop-5 — The tests run resolvers in containers, so that CI and a developer machine use the same versions.
-- FR-interop-6 — A CI workflow runs the interop tests on pull requests into `dev`.
+- FR-interop-6 — A CI workflow runs the interop tests on pull requests into `dev` and `main`.
 
 ### Operator guide
 

@@ -1,5 +1,10 @@
 version: "2"
 
+run:
+  # The interop files carry this build tag, and the linter skips them without it.
+  build-tags:
+    - interop
+
 linters:
   enable:
     - gocyclo

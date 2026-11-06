@@ -15,6 +15,8 @@ allowed-tools: Bash, Read
 
 The interop tests need Docker. If Docker is not available on a developer machine, the tests skip. In CI, they fail.
 
+A run with no Docker on a developer machine prints a plain `ok`. Add `-v` to see each skip.
+
 To run a fuzz target for the 60 seconds that the acceptance criteria state, use `go test -fuzz=<name> -fuzztime=60s ./<package>`.
 
 Normal tests never contact a real upstream. If a test needs a real round, read it from `testdata/vectors.json`.
