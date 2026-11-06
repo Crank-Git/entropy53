@@ -152,6 +152,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><a class="sub" href="#milestones">Milestones</a></li>
 <li><a class="sub" href="#assumptions">Assumptions</a></li>
 <li><a class="sub" href="#risks-open-questions">Risks &amp; open questions</a></li>
+<li><a class="sub" href="#issue-map">Issue map</a></li>
 <li><a class="sub" href="#changelog">Changelog</a></li>
 </ul>
 <h2>Pages</h2><ul>
@@ -598,6 +599,53 @@ docs/operator-guide.md operator guide</code></pre>
 <li><strong>Query privacy.</strong> A resolver sees which rounds a client reads. A pinned round number can reveal interest in a specific draw. The Internet-Draft states this in its security section. The project has no mitigation in v1.
 </li>
 </ol>
+<h2 id="issue-map">Issue map</h2>
+<h3 id="epics">Epics</h3>
+<div class="table-wrap"><table>
+<tr><th>Epic</th><th>Issue</th><th>Sub-issues</th></tr>
+<tr><td>Epic 0: Foundation</td><td>#1</td><td>#8, #9, #10, #11</td></tr>
+<tr><td>Epic 1: Record format</td><td>#2</td><td>#12, #13, #14, #15, #16</td></tr>
+<tr><td>Epic 2: Gateway upstream</td><td>#3</td><td>#17, #18, #19, #20</td></tr>
+<tr><td>Epic 3: Gateway answers</td><td>#4</td><td>#21, #22, #23, #24, #25, #26</td></tr>
+<tr><td>Epic 4: Client and CLI</td><td>#5</td><td>#27, #28, #29, #30, #31</td></tr>
+<tr><td>Epic 5: Interop and release</td><td>#6</td><td>#32, #33, #34, #35</td></tr>
+<tr><td>Epic 6: Internet-Draft</td><td>#7</td><td>#36, #37, #38</td></tr>
+</table></div>
+<h3 id="requirements">Requirements</h3>
+<div class="table-wrap"><table>
+<tr><th>Issue</th><th>Requirements</th></tr>
+<tr><td>#8</td><td>FR-foundation-1, FR-foundation-2, FR-foundation-3, FR-foundation-4, FR-foundation-5, FR-foundation-11, FR-foundation-12</td></tr>
+<tr><td>#9</td><td>FR-foundation-6, FR-foundation-7, FR-foundation-8, FR-foundation-9</td></tr>
+<tr><td>#10</td><td>FR-foundation-10, FR-foundation-15, FR-foundation-16</td></tr>
+<tr><td>#11</td><td>FR-foundation-13, FR-foundation-14</td></tr>
+<tr><td>#12</td><td>FR-record-1, FR-record-2, FR-record-3, FR-record-4, FR-record-5, FR-record-6, FR-record-7, FR-record-8, FR-record-23, FR-record-24</td></tr>
+<tr><td>#13</td><td>FR-record-9, FR-record-10, FR-record-11, FR-record-12, FR-record-13</td></tr>
+<tr><td>#14</td><td>FR-record-14, FR-record-15, FR-record-16, FR-record-17</td></tr>
+<tr><td>#15</td><td>FR-record-20, FR-record-21, FR-record-22</td></tr>
+<tr><td>#16</td><td>FR-record-18, FR-record-19</td></tr>
+<tr><td>#17</td><td>FR-upstream-1, FR-upstream-3, FR-upstream-8, FR-upstream-9, FR-upstream-10, FR-upstream-11</td></tr>
+<tr><td>#18</td><td>FR-upstream-4, FR-upstream-5, FR-upstream-6, FR-upstream-7, FR-upstream-14, FR-upstream-15</td></tr>
+<tr><td>#19</td><td>FR-upstream-12, FR-upstream-13</td></tr>
+<tr><td>#20</td><td>FR-upstream-2, FR-upstream-16, FR-upstream-17, FR-upstream-18, FR-upstream-19, FR-upstream-20, FR-upstream-21</td></tr>
+<tr><td>#21</td><td>FR-answers-1, FR-answers-2, FR-answers-3, FR-answers-4, FR-answers-5, FR-answers-6, FR-answers-7, FR-answers-8, FR-answers-9</td></tr>
+<tr><td>#22</td><td>FR-answers-25, FR-answers-26, FR-answers-28, FR-answers-29, FR-answers-30, FR-answers-31, FR-answers-32, FR-answers-33, FR-answers-34, FR-answers-35, FR-answers-36, FR-answers-37, FR-answers-38, FR-answers-46</td></tr>
+<tr><td>#23</td><td>FR-answers-10, FR-answers-11, FR-answers-12, FR-answers-13, FR-answers-14, FR-answers-15, FR-answers-16, FR-answers-20, FR-answers-21, FR-answers-22, FR-answers-23, FR-answers-24</td></tr>
+<tr><td>#24</td><td>FR-answers-17, FR-answers-18, FR-answers-19</td></tr>
+<tr><td>#25</td><td>FR-answers-39, FR-answers-40, FR-answers-41, FR-answers-42, FR-answers-43</td></tr>
+<tr><td>#26</td><td>FR-answers-27, FR-answers-44, FR-answers-45</td></tr>
+<tr><td>#27</td><td>FR-client-2, FR-client-4, FR-client-5, FR-client-6, FR-client-14, FR-client-16, FR-client-17</td></tr>
+<tr><td>#28</td><td>FR-client-1, FR-client-7, FR-client-8, FR-client-9, FR-client-10, FR-client-11, FR-client-12, FR-client-13, FR-client-18</td></tr>
+<tr><td>#29</td><td>FR-client-3, FR-client-15</td></tr>
+<tr><td>#30</td><td>FR-cli-1, FR-cli-4, FR-cli-8, FR-cli-9, FR-cli-10</td></tr>
+<tr><td>#31</td><td>FR-cli-2, FR-cli-3, FR-cli-5, FR-cli-6, FR-cli-7, FR-cli-11</td></tr>
+<tr><td>#32</td><td>FR-interop-1, FR-interop-2, FR-interop-4, FR-interop-5</td></tr>
+<tr><td>#33</td><td>FR-interop-3, FR-interop-6</td></tr>
+<tr><td>#34</td><td>FR-interop-7, FR-interop-8, FR-interop-9, FR-interop-10, FR-interop-11, FR-interop-12, FR-interop-13</td></tr>
+<tr><td>#35</td><td>FR-interop-14, FR-interop-15, FR-interop-16</td></tr>
+<tr><td>#36</td><td>FR-draft-1, FR-draft-2, FR-draft-3, FR-draft-4, FR-draft-5, FR-draft-6, FR-draft-7, FR-draft-10</td></tr>
+<tr><td>#37</td><td>FR-draft-8, FR-draft-9</td></tr>
+<tr><td>#38</td><td>FR-draft-11, FR-draft-12, FR-draft-13</td></tr>
+</table></div>
 <h2 id="changelog">Changelog</h2>
 <ul>
 <li>2026-11-06: First draft for review.

@@ -2,8 +2,8 @@
 id: record-format
 feature: Record format and registry
 epic: "Epic 1: Record format"
-status: planned
-issues: []
+status: issued
+issues: [12, 13, 14, 15, 16]
 mockups: []
 ---
 

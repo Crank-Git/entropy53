@@ -2,8 +2,8 @@
 id: gateway-answers
 feature: Gateway answers
 epic: "Epic 3: Gateway answers"
-status: planned
-issues: []
+status: issued
+issues: [21, 22, 23, 24, 25, 26]
 mockups: []
 ---
 

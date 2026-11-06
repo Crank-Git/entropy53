@@ -2,8 +2,8 @@
 id: gateway-upstream
 feature: Gateway upstream and store
 epic: "Epic 2: Gateway upstream"
-status: planned
-issues: []
+status: issued
+issues: [17, 18, 19, 20]
 mockups: []
 ---
 

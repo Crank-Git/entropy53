@@ -2,8 +2,8 @@
 id: cli
 feature: CLI
 epic: "Epic 4: Client and CLI"
-status: planned
-issues: []
+status: issued
+issues: [30, 31]
 mockups: []
 ---
 

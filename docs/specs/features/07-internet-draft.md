@@ -2,8 +2,8 @@
 id: internet-draft
 feature: Internet-Draft
 epic: "Epic 6: Internet-Draft"
-status: planned
-issues: []
+status: issued
+issues: [36, 37, 38]
 mockups: []
 ---
 

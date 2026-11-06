@@ -440,6 +440,56 @@ No item blocks approval. The first item needs an answer before Epic 6 starts.
 8. **The gap claim.** One search on 2026-11-06 found no DNS delivery of drand rounds. A search cannot prove that none exists. The maintainer repeats the search before draft submission.
 9. **Query privacy.** A resolver sees which rounds a client reads. A pinned round number can reveal interest in a specific draw. The Internet-Draft states this in its security section. The project has no mitigation in v1.
 
+## Issue map
+
+### Epics
+
+| Epic | Issue | Sub-issues |
+|---|---|---|
+| Epic 0: Foundation | #1 | #8, #9, #10, #11 |
+| Epic 1: Record format | #2 | #12, #13, #14, #15, #16 |
+| Epic 2: Gateway upstream | #3 | #17, #18, #19, #20 |
+| Epic 3: Gateway answers | #4 | #21, #22, #23, #24, #25, #26 |
+| Epic 4: Client and CLI | #5 | #27, #28, #29, #30, #31 |
+| Epic 5: Interop and release | #6 | #32, #33, #34, #35 |
+| Epic 6: Internet-Draft | #7 | #36, #37, #38 |
+
+### Requirements
+
+| Issue | Requirements |
+|---|---|
+| #8 | FR-foundation-1, FR-foundation-2, FR-foundation-3, FR-foundation-4, FR-foundation-5, FR-foundation-11, FR-foundation-12 |
+| #9 | FR-foundation-6, FR-foundation-7, FR-foundation-8, FR-foundation-9 |
+| #10 | FR-foundation-10, FR-foundation-15, FR-foundation-16 |
+| #11 | FR-foundation-13, FR-foundation-14 |
+| #12 | FR-record-1, FR-record-2, FR-record-3, FR-record-4, FR-record-5, FR-record-6, FR-record-7, FR-record-8, FR-record-23, FR-record-24 |
+| #13 | FR-record-9, FR-record-10, FR-record-11, FR-record-12, FR-record-13 |
+| #14 | FR-record-14, FR-record-15, FR-record-16, FR-record-17 |
+| #15 | FR-record-20, FR-record-21, FR-record-22 |
+| #16 | FR-record-18, FR-record-19 |
+| #17 | FR-upstream-1, FR-upstream-3, FR-upstream-8, FR-upstream-9, FR-upstream-10, FR-upstream-11 |
+| #18 | FR-upstream-4, FR-upstream-5, FR-upstream-6, FR-upstream-7, FR-upstream-14, FR-upstream-15 |
+| #19 | FR-upstream-12, FR-upstream-13 |
+| #20 | FR-upstream-2, FR-upstream-16, FR-upstream-17, FR-upstream-18, FR-upstream-19, FR-upstream-20, FR-upstream-21 |
+| #21 | FR-answers-1, FR-answers-2, FR-answers-3, FR-answers-4, FR-answers-5, FR-answers-6, FR-answers-7, FR-answers-8, FR-answers-9 |
+| #22 | FR-answers-25, FR-answers-26, FR-answers-28, FR-answers-29, FR-answers-30, FR-answers-31, FR-answers-32, FR-answers-33, FR-answers-34, FR-answers-35, FR-answers-36, FR-answers-37, FR-answers-38, FR-answers-46 |
+| #23 | FR-answers-10, FR-answers-11, FR-answers-12, FR-answers-13, FR-answers-14, FR-answers-15, FR-answers-16, FR-answers-20, FR-answers-21, FR-answers-22, FR-answers-23, FR-answers-24 |
+| #24 | FR-answers-17, FR-answers-18, FR-answers-19 |
+| #25 | FR-answers-39, FR-answers-40, FR-answers-41, FR-answers-42, FR-answers-43 |
+| #26 | FR-answers-27, FR-answers-44, FR-answers-45 |
+| #27 | FR-client-2, FR-client-4, FR-client-5, FR-client-6, FR-client-14, FR-client-16, FR-client-17 |
+| #28 | FR-client-1, FR-client-7, FR-client-8, FR-client-9, FR-client-10, FR-client-11, FR-client-12, FR-client-13, FR-client-18 |
+| #29 | FR-client-3, FR-client-15 |
+| #30 | FR-cli-1, FR-cli-4, FR-cli-8, FR-cli-9, FR-cli-10 |
+| #31 | FR-cli-2, FR-cli-3, FR-cli-5, FR-cli-6, FR-cli-7, FR-cli-11 |
+| #32 | FR-interop-1, FR-interop-2, FR-interop-4, FR-interop-5 |
+| #33 | FR-interop-3, FR-interop-6 |
+| #34 | FR-interop-7, FR-interop-8, FR-interop-9, FR-interop-10, FR-interop-11, FR-interop-12, FR-interop-13 |
+| #35 | FR-interop-14, FR-interop-15, FR-interop-16 |
+| #36 | FR-draft-1, FR-draft-2, FR-draft-3, FR-draft-4, FR-draft-5, FR-draft-6, FR-draft-7, FR-draft-10 |
+| #37 | FR-draft-8, FR-draft-9 |
+| #38 | FR-draft-11, FR-draft-12, FR-draft-13 |
+
 ## Changelog
 
 - 2026-11-06: First draft for review.

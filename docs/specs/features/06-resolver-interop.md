@@ -2,8 +2,8 @@
 id: resolver-interop
 feature: Resolver interop and release
 epic: "Epic 5: Interop and release"
-status: planned
-issues: []
+status: issued
+issues: [32, 33, 34, 35]
 mockups: []
 ---
 

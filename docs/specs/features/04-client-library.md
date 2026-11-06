@@ -2,8 +2,8 @@
 id: client-library
 feature: Client library
 epic: "Epic 4: Client and CLI"
-status: planned
-issues: []
+status: issued
+issues: [27, 28, 29]
 mockups: []
 ---
 
