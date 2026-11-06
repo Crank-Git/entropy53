@@ -17,7 +17,7 @@ Each rule below protects a claim in `docs/specs/pages/threat-model.md`. A change
 - Take a public key only from the registry. Never read a key from DNS or from an upstream.
 - The gateway verifies a round before the round enters the store.
 - The client library verifies a round before it returns the round.
-- Compute `randomness` from the signature. Never read `randomness` from a record or an upstream.
+- Compute `randomness` from the signature. Never read `randomness` from a record or an upstream. The one exception is `scripts/refreshvectors`, which stores the value as expected test data in `testdata/vectors.json`.
 - `Round` rejects a record with another round number.
 
 ## Round numbers
