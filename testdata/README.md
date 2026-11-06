@@ -1,6 +1,6 @@
 # Vector file
 
-`vectors.json` holds the vectors. A vector is one real round with its expected record body. The `vectors` array is empty until issue #15 fills it.
+`vectors.json` holds the vectors. A vector is one real round with its expected record body.
 
 ## Schema
 
@@ -19,4 +19,4 @@ Each vector object has these fields (FR-record-21):
 
 ## Refresh
 
-Until issue #15 lands, `make refresh-vectors` exits non-zero and prints a message. It does not rewrite the file and does not contact an upstream. After #15, the target rewrites the file from a real upstream, so no normal test runs it.
+`make refresh-vectors` fetches round 1000 of each chain from `https://api.drand.sh` and rewrites the file. It writes nothing unless all three fetches succeed. No normal test runs it.
