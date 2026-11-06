@@ -19,7 +19,7 @@ Design lives in `docs/specs/`. Read `docs/specs/spec.md` and the relevant `docs/
 - `client/`: public. Client library.
 - `internal/gateway/`: names, answers, store, upstream, follower, limits.
 - `internal/version/`: build version source.
-- `scripts/`: release build script and its test.
+- `scripts/`: release build script and its test. `scripts/refreshvectors/` refreshes `testdata/vectors.json`.
 - `testdata/vectors.json`: real rounds.
 - `test/interop/`: tests against real resolvers.
 - `draft/`: Internet-Draft source.
@@ -38,7 +38,7 @@ These commands apply after Epic 0.
 ## Conventions
 
 - Verify before use. The gateway verifies before it keeps a round. The client library verifies before it returns a round.
-- The client library computes `randomness`. No code reads `randomness` from a gateway or an upstream.
+- The client library computes `randomness`. No code reads `randomness` from a gateway or an upstream. The one exception is `scripts/refreshvectors`, which stores the value as expected test data. `testdata/vectors.json` is the file that records it.
 - Use `Chain.RoundAfter` to pin a round. `Chain.RoundAt` returns a round that already exists.
 - A future round returns NODATA, never NXDOMAIN. An empty non-terminal returns NODATA, never NXDOMAIN.
 - No normal test contacts a real upstream.
