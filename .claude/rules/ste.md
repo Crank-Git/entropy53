@@ -13,6 +13,8 @@ Every spec file, issue body, comment, manual page and **code comment** in this p
 
 The BCP 14 text of the Internet-Draft follows IETF conventions, and this rule does not apply to it.
 
+`README.md` is the other exception. It uses the voice of the maintainer. FR-interop-14, FR-interop-15 and FR-foundation-5 hold its rules, and `cmd/entropy53/readme_test.go` checks them. US English applies to it. Every other Markdown file keeps this standard.
+
 ## Keep these verbatim
 
 - Anything quoted from a person.
