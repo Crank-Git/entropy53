@@ -9,8 +9,8 @@ import (
 
 // readmeSections splits README.md at its level-2 headings.
 // The key is the heading text and the value is the section body.
-// The first heading is also returned by name, because the order matters.
-func readmeSections(t *testing.T) (first string, sections map[string]string) {
+// The headings are also returned in file order, because the order matters.
+func readmeSections(t *testing.T) (order []string, sections map[string]string) {
 	t.Helper()
 	data, err := os.ReadFile("../../README.md")
 	if err != nil {
@@ -21,16 +21,14 @@ func readmeSections(t *testing.T) (first string, sections map[string]string) {
 	for _, line := range strings.Split(string(data), "\n") {
 		if h, ok := strings.CutPrefix(line, "## "); ok {
 			name = strings.TrimSpace(h)
-			if first == "" {
-				first = name
-			}
+			order = append(order, name)
 			continue
 		}
 		if name != "" {
 			sections[name] += line + "\n"
 		}
 	}
-	return first, sections
+	return order, sections
 }
 
 // commandLine returns the first line in body that starts with prefix.
@@ -45,12 +43,13 @@ func commandLine(t *testing.T, body, prefix string) string {
 	return ""
 }
 
-func TestReadmeFirstSectionShowsRoundAtAndGet(t *testing.T) {
-	first, sections := readmeSections(t)
-	if first != "Pin a round" {
-		t.Fatalf("the first section is %q, want %q", first, "Pin a round")
+func TestReadmePinARoundFollowsWhyAndShowsRoundAtAndGet(t *testing.T) {
+	order, sections := readmeSections(t)
+	want := []string{"Why entropy53", "Pin a round"}
+	if len(order) < 2 || order[0] != want[0] || order[1] != want[1] {
+		t.Fatalf("the sections start %q, want %q", order, want)
 	}
-	body := sections[first]
+	body := sections["Pin a round"]
 	commandLine(t, body, "entropy53 round-at ")
 	commandLine(t, body, "entropy53 get ")
 }
